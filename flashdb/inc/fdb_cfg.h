@@ -12,7 +12,7 @@
 #ifndef _FDB_CFG_H_
 #define _FDB_CFG_H_
 
-/* using KVDB function */
+/* using KVDB feature */
 #define FDB_USING_KVDB
 
 #ifdef FDB_USING_KVDB
