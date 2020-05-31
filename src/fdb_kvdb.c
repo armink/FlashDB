@@ -1543,6 +1543,9 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
     FDB_ASSERT((FDB_STR_KV_VALUE_MAX_SIZE * 8) % FDB_WRITE_GRAN == 0);
 
     result = _fdb_init_ex((fdb_db_t)db, name, part_name, FDB_DB_TYPE_KV, user_data);
+    if (result != FDB_NO_ERR) {
+        goto __exit;
+    }
 
     db->gc_request = false;
     db->in_recovery_check = false;
@@ -1563,8 +1566,7 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
     }
 #endif /* FDB_KV_USING_CACHE */
 
-
-    FDB_DEBUG("KV in partition %s, size is %u bytes.\n", ((fdb_db_t)db)->part->name, db_part_size(db));
+    FDB_DEBUG("KVDB in partition %s, size is %u bytes.\n", ((fdb_db_t)db)->part->name, db_part_size(db));
 
     result = _fdb_kv_load(db);
 
@@ -1573,6 +1575,8 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
         kv_auto_update(db);
     }
 #endif
+
+__exit:
 
     _fdb_init_finish((fdb_db_t)db, result);
 

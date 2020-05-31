@@ -94,7 +94,7 @@ void _fdb_init_finish(fdb_db_t db, fdb_err_t result)
             log_is_show = true;
         }
     } else {
-        FDB_INFO("Error: %s(%s) at partition %s is initialize fail(%d).\n", db->type == FDB_DB_TYPE_KV ? "KV" : "TS",
-                db->name, db->part->name, result);
+        FDB_INFO("Error: %s (%s) is initialize fail (%d).\n", db->type == FDB_DB_TYPE_KV ? "KVDB" : "TSDB",
+                db->name, result);
     }
 }
