@@ -84,6 +84,7 @@ FlashDB 提供了主要功能的示例，直接加入工程即可运行，并具
 
 | 文件路径                                                     | 介绍                                    | 备注 |
 | ------------------------------------------------------------ | --------------------------------------- | ---- |
+| [`samples/kvdb_basic_sample.c`](samples/kvdb_basic_sample.c) | KVDB 基础示例，获取当前启动次数         |      |
 | [`samples/kvdb_type_string_sample.c`](samples/kvdb_type_string_sample.c) | KVDB 使用字符型键值的示例               |      |
 | [`samples/kvdb_type_blob_sample.c`](samples/kvdb_type_blob_sample.c) | KVDB 使用 blob 型（任意类型）键值的示例 |      |
 | [`samples/tsdb_sample.c`](samples/tsdb_sample.c)             | TSDB 示例                               |      |

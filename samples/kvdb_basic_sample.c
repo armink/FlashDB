@@ -9,6 +9,7 @@
  * @brief basic KV samples.
  *
  * basic Key-Value Database KV feature samples
+ * get and show currnet boot counts
  */
 
 #include <flashdb.h>
