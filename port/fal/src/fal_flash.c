@@ -42,6 +42,7 @@ static uint8_t init_ok = 0;
 int fal_flash_init(void)
 {
     size_t i;
+    const struct fal_flash_dev *dev;
 
     if (init_ok)
     {
@@ -50,6 +51,7 @@ int fal_flash_init(void)
 
     for (i = 0; i < device_table_len; i++)
     {
+        dev = device_table[i];
         assert(device_table[i]->ops.read);
         assert(device_table[i]->ops.write);
         assert(device_table[i]->ops.erase);
@@ -59,8 +61,8 @@ int fal_flash_init(void)
             device_table[i]->ops.init();
         }
         log_d("Flash device | %*.*s | addr: 0x%08lx | len: 0x%08x | blk_size: 0x%08x |initialized finish.",
-                FAL_DEV_NAME_MAX, FAL_DEV_NAME_MAX, device_table[i]->name, device_table[i]->addr, device_table[i]->len,
-                device_table[i]->blk_size);
+                FAL_DEV_NAME_MAX, FAL_DEV_NAME_MAX, dev->name, dev->addr, dev->len,
+                dev->blk_size);
     }
 
     init_ok = 1;
