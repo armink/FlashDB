@@ -529,7 +529,7 @@ static bool query_count_cb(fdb_tsl_t tsl, void *arg)
  */
 size_t fdb_tsl_query_count(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl_status_t status)
 {
-    struct query_count_args arg = { 0 };
+    struct query_count_args arg = { FDB_TSL_UNUSED, 0 };
 
     arg.status = status;
 
