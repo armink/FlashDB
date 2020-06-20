@@ -252,7 +252,7 @@ static uint32_t find_next_kv_addr(fdb_kvdb_t db, uint32_t start, uint32_t end)
     }
 #endif /* FDB_KV_USING_CACHE */
 
-    for (; start < end; start += (sizeof(buf) - sizeof(uint32_t))) {
+    for (; start < end && start + sizeof(buf) < end; start += (sizeof(buf) - sizeof(uint32_t))) {
         _fdb_flash_read((fdb_db_t)db, start, (uint32_t *) buf, sizeof(buf));
         for (i = 0; i < sizeof(buf) - sizeof(uint32_t) && start + i < end; i++) {
 #ifndef FDB_BIG_ENDIAN            /* Little Endian Order */
@@ -293,7 +293,7 @@ static uint32_t get_next_kv_addr(fdb_kvdb_t db, kv_sec_info_t sector, fdb_kv_t p
             addr = find_next_kv_addr(db, addr, sector->addr + db_sec_size(db) - SECTOR_HDR_DATA_SIZE);
 
             if (addr > sector->addr + db_sec_size(db) || pre_kv->len == 0) {
-                //TODO ÉÈÇøÁ¬ÐøÄ£Ê½
+                //TODO æ‰‡åŒºè¿žç»­æ¨¡å¼
                 return FAILED_ADDR;
             }
         } else {
@@ -328,7 +328,7 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
         kv->crc_is_ok = false;
         return FDB_READ_ERR;
     } else if (kv->len > db_sec_size(db) - SECTOR_HDR_DATA_SIZE && kv->len < db_part_size(db)) {
-        //TODO ÉÈÇøÁ¬ÐøÄ£Ê½£¬»òÕßÐ´Èë³¤¶ÈÃ»ÓÐÐ´ÈëÍêÕû
+        //TODO æ‰‡åŒºè¿žç»­æ¨¡å¼ï¼Œæˆ–è€…å†™å…¥é•¿åº¦æ²¡æœ‰å†™å…¥å®Œæ•´
         FDB_ASSERT(0);
     }
 
@@ -1468,7 +1468,7 @@ static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
     } else if (kv->status == FDB_KV_PRE_WRITE) {
         uint8_t status_table[KV_STATUS_TABLE_SIZE];
         /* the KV has not write finish, change the status to error */
-        //TODO »æÖÆÒì³£´¦ÀíµÄ×´Ì¬×°»»Í¼
+        //TODO ç»˜åˆ¶å¼‚å¸¸å¤„ç†çš„çŠ¶æ€è£…æ¢å›¾
         _fdb_write_status((fdb_db_t)db, kv->addr.start, status_table, FDB_KV_STATUS_NUM, FDB_KV_ERR_HDR);
         return true;
     }
