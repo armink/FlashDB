@@ -923,7 +923,7 @@ static fdb_err_t move_kv(fdb_kvdb_t db, fdb_kv_t kv)
             }
         }
     } else {
-        return FDB_KV_FULL;
+        return FDB_SAVED_FULL;
     }
     /* start move the KV */
     {
@@ -1092,7 +1092,7 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
 
     if (kv_hdr.len > db_sec_size(db) - SECTOR_HDR_DATA_SIZE) {
         FDB_INFO("Error: The KV size is too big\n");
-        return FDB_KV_FULL;
+        return FDB_SAVED_FULL;
     }
 
     if (kv_addr != FAILED_ADDR || (kv_addr = new_kv(db, sector, kv_hdr.len)) != FAILED_ADDR) {
@@ -1146,7 +1146,7 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
             db->gc_request = true;
         }
     } else {
-        result = FDB_KV_FULL;
+        result = FDB_SAVED_FULL;
     }
 
     return result;
@@ -1192,7 +1192,7 @@ static fdb_err_t set_kv(fdb_kvdb_t db, const char *key, const void *value_buf, s
     } else {
         /* make sure the flash has enough space */
         if (new_kv_ex(db, &sector, strlen(key), buf_len) == FAILED_ADDR) {
-            return FDB_KV_FULL;
+            return FDB_SAVED_FULL;
         }
         kv_is_found = find_kv(db, key, &kv);
         /* prepare to delete the old KV */
