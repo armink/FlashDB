@@ -1531,6 +1531,8 @@ void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
 
     switch (cmd) {
     case FDB_KVDB_CTRL_SET_SEC_SIZE:
+        /* the sector size change MUST before database initialization */
+        FDB_ASSERT(db->parent.init_ok == false);
         db->parent.sec_size = *(uint32_t *)arg;
         break;
     case FDB_KVDB_CTRL_GET_SEC_SIZE:
