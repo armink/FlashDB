@@ -25,10 +25,9 @@ extern "C" {
 #endif
 
 /* FlashDB database API */
-void      fdb_lock_set    (fdb_db_t db, void (*lock)(fdb_db_t db), void (*unlock)(fdb_db_t db));
-void      fdb_sec_size_set(fdb_db_t db, uint32_t sec_size);
 fdb_err_t fdb_kvdb_init   (fdb_kvdb_t db, const char *name, const char *part_name, struct fdb_default_kv *default_kv,
         void *user_data);
+void      fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg);
 fdb_err_t fdb_tsdb_init   (fdb_tsdb_t db, const char *name, const char *part_name, fdb_get_time get_time, size_t max_len,
         void *user_data);
 void      fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg);

@@ -1519,6 +1519,33 @@ __retry:
 }
 
 /**
+ * This function will get or set some options of the database
+ *
+ * @param db database object
+ * @param cmd the control command
+ * @param arg the argument
+ */
+void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
+{
+    FDB_ASSERT(db);
+
+    switch (cmd) {
+    case FDB_KVDB_CTRL_SET_SEC_SIZE:
+        db->parent.sec_size = *(uint32_t *)arg;
+        break;
+    case FDB_KVDB_CTRL_GET_SEC_SIZE:
+        *(uint32_t *)arg = db->parent.sec_size;
+        break;
+    case FDB_KVDB_CTRL_SET_LOCK:
+        db->parent.lock = (void (*)(fdb_db_t db))arg;
+        break;
+    case FDB_KVDB_CTRL_SET_UNLOCK:
+        db->parent.unlock = (void (*)(fdb_db_t db))arg;
+        break;
+    }
+}
+
+/**
  * The KV database initialization.
  *
  * @param db database object

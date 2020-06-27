@@ -64,7 +64,8 @@ int main(void)
         default_kv.kvs = default_kv_table;
         default_kv.num = sizeof(default_kv_table) / sizeof(default_kv_table[0]);
         /* set the lock and unlock function if you want */
-        fdb_lock_set((fdb_db_t)&kvdb, lock, unlock);
+        fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_LOCK, lock);
+        fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_UNLOCK, unlock);
         /* Key-Value database initialization
          *
          *       &kvdb: database object
@@ -92,7 +93,8 @@ int main(void)
 #ifdef FDB_USING_TSDB
     { /* TSDB Sample */
         /* set the lock and unlock function if you want */
-        fdb_lock_set((fdb_db_t)&tsdb, lock, unlock);
+        fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_SET_LOCK, lock);
+        fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_SET_UNLOCK, unlock);
         /* Time series database initialization
          *
          *       &tsdb: database object

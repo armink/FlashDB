@@ -61,8 +61,17 @@ if (!(EXPR))                                                                  \
     while (1);                                                                \
 }
 
-#define FDB_TSDB_CTRL_SET_ROLLOVER     0x0             /**< set rollover control command */
-#define FDB_TSDB_CTRL_GET_ROLLOVER     0x1             /**< get rollover control command */
+#define FDB_KVDB_CTRL_SET_SEC_SIZE     0x0             /**< get sector size control command */
+#define FDB_KVDB_CTRL_GET_SEC_SIZE     0x1             /**< get sector size control command */
+#define FDB_KVDB_CTRL_SET_LOCK         0x2             /**< set lock function control command */
+#define FDB_KVDB_CTRL_SET_UNLOCK       0x3             /**< set unlock function control command */
+
+#define FDB_TSDB_CTRL_SET_SEC_SIZE     0x0             /**< get sector size control command */
+#define FDB_TSDB_CTRL_GET_SEC_SIZE     0x1             /**< get sector size control command */
+#define FDB_TSDB_CTRL_SET_LOCK         0x2             /**< set lock function control command */
+#define FDB_TSDB_CTRL_SET_UNLOCK       0x3             /**< set unlock function control command */
+#define FDB_TSDB_CTRL_SET_ROLLOVER     0x4             /**< set rollover control command */
+#define FDB_TSDB_CTRL_GET_ROLLOVER     0x5             /**< get rollover control command */
 
 typedef time_t fdb_time_t;
 #ifdef FDB_USING_TIMESTAMP_64BIT

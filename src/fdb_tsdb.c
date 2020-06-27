@@ -668,12 +668,23 @@ void fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg)
     FDB_ASSERT(db);
 
     switch (cmd) {
+    case FDB_TSDB_CTRL_SET_ROLLOVER:
+        db->rollover = *(bool *)arg;
+        break;
     case FDB_TSDB_CTRL_GET_ROLLOVER:
         *(bool *)arg = db->rollover;
         break;
-
-    case FDB_TSDB_CTRL_SET_ROLLOVER:
-        db->rollover = *(bool *)arg;
+    case FDB_TSDB_CTRL_SET_SEC_SIZE:
+        db->parent.sec_size = *(uint32_t *)arg;
+        break;
+    case FDB_TSDB_CTRL_GET_SEC_SIZE:
+        *(uint32_t *)arg = db->parent.sec_size;
+        break;
+    case FDB_TSDB_CTRL_SET_LOCK:
+        db->parent.lock = (void (*)(fdb_db_t db))arg;
+        break;
+    case FDB_TSDB_CTRL_SET_UNLOCK:
+        db->parent.unlock = (void (*)(fdb_db_t db))arg;
         break;
     }
 }
