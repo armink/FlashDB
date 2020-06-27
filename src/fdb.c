@@ -16,39 +16,6 @@
 
 #define FDB_LOG_TAG ""
 
-/**
- * Set database lock and unlock funtion.
- *
- * @param db database object
- * @param lock lock function
- * @param unlock lock function
- */
-void fdb_lock_set(fdb_db_t db, void (*lock)(fdb_db_t db), void (*unlock)(fdb_db_t db))
-{
-    FDB_ASSERT(db);
-
-    db->lock = lock;
-    db->unlock = unlock;
-}
-
-/**
- * Set the sector size for database.
- *
- * @note The sector size MUST align by partition block size.
- * @note The sector size change MUST before database initialization.
- *
- * @param db database object
- * @param sec_size
- */
-void fdb_sec_size_set(fdb_db_t db, uint32_t sec_size)
-{
-    FDB_ASSERT(db);
-    /* the sector size change MUST before database initialization */
-    FDB_ASSERT(db->init_ok == false);
-
-    db->sec_size = sec_size;
-}
-
 fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *part_name, fdb_db_type type, void *user_data)
 {
     size_t block_size;
