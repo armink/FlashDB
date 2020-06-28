@@ -18,8 +18,8 @@
 #include <stdlib.h>
 
 #define TEST_TS_PART_NAME             "fdb_kvdb1"
-#define TEST_KV_BLOB_NAME              "kv_blob_test"
-#define TEST_KV_NAME                   "kv_test"
+#define TEST_KV_BLOB_NAME             "kv_blob_test"
+#define TEST_KV_NAME                  "kv_test"
 
 #if defined(RT_USING_UTEST) && defined(FDB_USING_KVDB)
 
@@ -32,7 +32,7 @@ static struct fdb_default_kv_node default_kv_set[] = {
 
 static struct fdb_kvdb test_kvdb;
 
-static void test_easyflash_init(void)
+static void test_fdb_kvdb_init(void)
 {
     struct fdb_default_kv default_kv;
 
@@ -174,7 +174,7 @@ static rt_err_t utest_tc_cleanup(void)
 
 static void testcase(void)
 {
-    UTEST_UNIT_RUN(test_easyflash_init);
+    UTEST_UNIT_RUN(test_fdb_kvdb_init);
     UTEST_UNIT_RUN(test_fdb_create_kv_blob);
     UTEST_UNIT_RUN(test_fdb_change_kv_blob);
     UTEST_UNIT_RUN(test_fdb_del_kv_blob);
@@ -184,4 +184,4 @@ static void testcase(void)
 }
 UTEST_TC_EXPORT(testcase, "packages.tools.flashdb.kvdb", utest_tc_init, utest_tc_cleanup, 20);
 
-#endif /* defined(RT_USING_UTEST) && defined(FDB_USING_TSDB) */
+#endif /* defined(RT_USING_UTEST) && defined(FDB_USING_KVDB) */
