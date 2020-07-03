@@ -141,6 +141,15 @@ struct fdb_kv {
 };
 typedef struct fdb_kv *fdb_kv_t;
 
+struct fdb_kv_iterator {
+    struct fdb_kv curr_kv;                       /**< Current KV we get from the iterator */
+    uint32_t iterated_cnt;                       /**< How many KVs have we iterated already */
+    size_t iterated_obj_bytes;                   /**< Total storage size of KVs we have iterated. */
+    size_t iterated_value_bytes;                 /**< Total value size of KVs we have iterated. */
+    uint32_t sector_addr;                        /**< Current sector address we're iterating. DO NOT touch it. */
+};
+typedef struct fdb_kv_iterator *fdb_kv_iterator_t;
+
 /* time series log node object */
 struct fdb_tsl {
     fdb_tsl_status_t status;                     /**< node status, @see fdb_log_status_t */
