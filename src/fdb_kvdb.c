@@ -621,7 +621,7 @@ fdb_kv_t fdb_kv_get_obj(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
  */
 fdb_blob_t fdb_kv_to_blob(fdb_kv_t kv, fdb_blob_t blob)
 {
-	blob->saved.addr = kv->addr.start;
+	blob->saved.meta_addr = kv->addr.start;
 	blob->saved.addr = kv->addr.value;
 	blob->saved.len = kv->value_len;
 
