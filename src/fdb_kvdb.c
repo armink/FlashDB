@@ -621,11 +621,11 @@ fdb_kv_t fdb_kv_get_obj(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
  */
 fdb_blob_t fdb_kv_to_blob(fdb_kv_t kv, fdb_blob_t blob)
 {
-	blob->saved.addr = kv->addr.start;
-	blob->saved.addr = kv->addr.value;
-	blob->saved.len = kv->value_len;
+    blob->saved.meta_addr = kv->addr.start;
+    blob->saved.addr = kv->addr.value;
+    blob->saved.len = kv->value_len;
 
-	return blob;
+    return blob;
 }
 
 /**
@@ -1610,6 +1610,68 @@ __exit:
     _fdb_init_finish((fdb_db_t)db, result);
 
     return result;
+}
+
+/**
+ * The KV database initialization.
+ *
+ * @param itr iterator structure to be initialized
+ *
+ * @return pointer to the iterator initialized.
+ */
+fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kv_iterator_t itr)
+{
+    itr->curr_kv.addr.start = 0;
+
+    /* If iterator statistics is needed */
+    itr->iterated_cnt = 0;
+    itr->iterated_obj_bytes = 0;
+    itr->iterated_value_bytes = 0;
+    /* Start from sector head */
+    itr->sector_addr = 0;
+    return itr;
+}
+
+/**
+ * The KV database iterator.
+ *
+ * @param db database object
+ * @param itr the iterator structure
+ *
+ * @return false if iterate not ended, true if iterate ended.
+ */
+bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
+{
+    struct kvdb_sec_info sector;
+    fdb_kv_t kv = &(itr->curr_kv);
+    do {
+        if (read_sector_info(db, itr->sector_addr, &sector, false) != FDB_NO_ERR) {
+            continue;
+        }
+        else if (sector.status.store == FDB_SECTOR_STORE_USING || sector.status.store == FDB_SECTOR_STORE_FULL) {
+            if (kv->addr.start == 0) {
+                kv->addr.start = sector.addr + SECTOR_HDR_DATA_SIZE;
+            }
+            else if ((kv->addr.start = get_next_kv_addr(db, &sector, kv)) == FAILED_ADDR) {
+                kv->addr.start = 0;
+                continue;
+            }
+            /* If iterator statistics is needed */
+            itr->iterated_cnt++;
+            itr->iterated_obj_bytes += kv->len;
+            itr->iterated_value_bytes += kv->value_len;
+
+            /* We got a valid kv here. */
+            read_kv(db, kv);
+            return true;
+        }
+        /** Set kv->addr.start to 0 when we get into a new sector so that if we successfully get the next sector info,
+         *  the kv->addr.start is set to the new sector.addr + SECTOR_HDR_DATA_SIZE.
+        */
+        kv->addr.start == 0;
+    } while ((itr->sector_addr = get_next_sector_addr(db, &sector)) != FAILED_ADDR);
+    /* Finally we have iterated all the KVs. */
+    return false;
 }
 
 #endif /* defined(FDB_USING_KVDB) */

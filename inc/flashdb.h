@@ -37,15 +37,17 @@ fdb_blob_t fdb_blob_make     (fdb_blob_t blob, const void *value_buf, size_t buf
 size_t     fdb_blob_read     (fdb_db_t db, fdb_blob_t blob);
 
 /* Key-Value API like a KV DB */
-fdb_err_t  fdb_kv_set        (fdb_kvdb_t db, const char *key, const char *value);
-char      *fdb_kv_get        (fdb_kvdb_t db, const char *key);
-fdb_err_t  fdb_kv_set_blob   (fdb_kvdb_t db, const char *key, fdb_blob_t blob);
-size_t     fdb_kv_get_blob   (fdb_kvdb_t db, const char *key, fdb_blob_t blob);
-fdb_err_t  fdb_kv_del        (fdb_kvdb_t db, const char *key);
-fdb_kv_t   fdb_kv_get_obj    (fdb_kvdb_t db, const char *key, fdb_kv_t kv);
-fdb_blob_t fdb_kv_to_blob    (fdb_kv_t   kv, fdb_blob_t blob);
-fdb_err_t  fdb_kv_set_default(fdb_kvdb_t db);
-void       fdb_kv_print      (fdb_kvdb_t db);
+fdb_err_t         fdb_kv_set          (fdb_kvdb_t db, const char *key, const char *value);
+char             *fdb_kv_get          (fdb_kvdb_t db, const char *key);
+fdb_err_t         fdb_kv_set_blob     (fdb_kvdb_t db, const char *key, fdb_blob_t blob);
+size_t            fdb_kv_get_blob     (fdb_kvdb_t db, const char *key, fdb_blob_t blob);
+fdb_err_t         fdb_kv_del          (fdb_kvdb_t db, const char *key);
+fdb_kv_t          fdb_kv_get_obj      (fdb_kvdb_t db, const char *key, fdb_kv_t kv);
+fdb_blob_t        fdb_kv_to_blob      (fdb_kv_t   kv, fdb_blob_t blob);
+fdb_err_t         fdb_kv_set_default  (fdb_kvdb_t db);
+void              fdb_kv_print        (fdb_kvdb_t db);
+fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kv_iterator_t itr);
+bool              fdb_kv_iterate      (fdb_kvdb_t db, fdb_kv_iterator_t itr);
 
 /* Time series log API like a TSDB */
 fdb_err_t  fdb_tsl_append      (fdb_tsdb_t db, fdb_blob_t blob);
