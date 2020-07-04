@@ -1645,26 +1645,28 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
     struct kvdb_sec_info sector;
     fdb_kv_t kv = &(itr->curr_kv);
     do {
-        if (read_sector_info(db, itr->sector_addr, &sector, false) != FDB_NO_ERR) {
-            continue;
-        }
-        else if (sector.status.store == FDB_SECTOR_STORE_USING || sector.status.store == FDB_SECTOR_STORE_FULL) {
-            if (kv->addr.start == 0) {
-                kv->addr.start = sector.addr + SECTOR_HDR_DATA_SIZE;
-            }
-            else if ((kv->addr.start = get_next_kv_addr(db, &sector, kv)) == FAILED_ADDR) {
-                kv->addr.start = 0;
-                continue;
-            }
-            /* If iterator statistics is needed */
-            itr->iterated_cnt++;
-            itr->iterated_obj_bytes += kv->len;
-            itr->iterated_value_bytes += kv->value_len;
-
-            /* We got a valid kv here. */
-            read_kv(db, kv);
-            return true;
-        }
+		if (read_sector_info(db, itr->sector_addr, &sector, false) == FDB_NO_ERR) {
+			if (sector.status.store == FDB_SECTOR_STORE_USING || sector.status.store == FDB_SECTOR_STORE_FULL) {
+				if (kv->addr.start == 0) {
+					kv->addr.start = sector.addr + SECTOR_HDR_DATA_SIZE;
+				}
+				else if ((kv->addr.start = get_next_kv_addr(db, &sector, kv)) == FAILED_ADDR) {
+					kv->addr.start = 0;
+					continue;
+				}
+				do {
+					read_kv(db, kv);
+					if (kv->status == FDB_KV_WRITE) {
+						/* We got a valid kv here. */
+						/* If iterator statistics is needed */
+						itr->iterated_cnt++;
+						itr->iterated_obj_bytes += kv->len;
+						itr->iterated_value_bytes += kv->value_len;
+						return true;
+					}
+				} while((kv->addr.start = get_next_kv_addr(db, &sector, kv)) != FAILED_ADDR);
+			}
+		}
         /** Set kv->addr.start to 0 when we get into a new sector so that if we successfully get the next sector info,
          *  the kv->addr.start is set to the new sector.addr + SECTOR_HDR_DATA_SIZE.
         */
