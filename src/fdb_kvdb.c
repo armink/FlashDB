@@ -1638,7 +1638,7 @@ fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kv_iterator_t itr)
  * @param db database object
  * @param itr the iterator structure
  *
- * @return false if iterate not ended, true if iterate ended.
+ * @return false if iteration is ended, true if iteration is not ended.
  */
 bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
 {
