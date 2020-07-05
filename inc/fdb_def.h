@@ -72,6 +72,7 @@ if (!(EXPR))                                                                  \
 #define FDB_TSDB_CTRL_SET_UNLOCK       0x3             /**< set unlock function control command */
 #define FDB_TSDB_CTRL_SET_ROLLOVER     0x4             /**< set rollover control command */
 #define FDB_TSDB_CTRL_GET_ROLLOVER     0x5             /**< get rollover control command */
+#define FDB_TSDB_CTRL_GET_LAST_TIME    0x6             /**< get last save time control command */
 
 typedef time_t fdb_time_t;
 #ifdef FDB_USING_TIMESTAMP_64BIT

@@ -75,9 +75,9 @@ struct sector_hdr_data {
     uint32_t magic;                              /**< magic word(`T`, `S`, `L`, `0`) */
     fdb_time_t start_time;                       /**< the first start node's timestamp */
     struct {
-		fdb_time_t time;                         /**< the last end node's timestamp */
-		uint32_t index;                          /**< the last end node's index */
-		uint8_t status[TSL_STATUS_TABLE_SIZE];   /**< end node status, @see fdb_tsl_status_t */
+        fdb_time_t time;                         /**< the last end node's timestamp */
+        uint32_t index;                          /**< the last end node's index */
+        uint8_t status[TSL_STATUS_TABLE_SIZE];   /**< end node status, @see fdb_tsl_status_t */
     } end_info[2];
     uint32_t reserved;
 };
@@ -98,7 +98,7 @@ struct query_count_args {
 };
 
 struct check_sec_hdr_cb_args {
-	fdb_tsdb_t db;
+    fdb_tsdb_t db;
     bool check_failed;
     size_t empty_num;
     uint32_t empty_addr;
@@ -283,10 +283,10 @@ static fdb_err_t write_tsl(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time)
 
 static fdb_err_t update_sec_status(fdb_tsdb_t db, tsdb_sec_info_t sector, fdb_blob_t blob, fdb_time_t cur_time)
 {
-	fdb_err_t result = FDB_NO_ERR;
-	uint8_t status[FDB_STORE_STATUS_TABLE_SIZE];
+    fdb_err_t result = FDB_NO_ERR;
+    uint8_t status[FDB_STORE_STATUS_TABLE_SIZE];
 
-	if (sector->status == FDB_SECTOR_STORE_USING && sector->remain < LOG_IDX_DATA_SIZE + FDB_WG_ALIGN(blob->size)) {
+    if (sector->status == FDB_SECTOR_STORE_USING && sector->remain < LOG_IDX_DATA_SIZE + FDB_WG_ALIGN(blob->size)) {
         if (db->rollover) {
             uint8_t end_status[TSL_STATUS_TABLE_SIZE];
             uint32_t end_index = sector->empty_idx - LOG_IDX_DATA_SIZE, new_sec_addr, cur_sec_addr = sector->addr;
@@ -511,9 +511,9 @@ void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl
                     }
                 } while ((tsl.addr.index = get_next_tsl_addr(&sector, &tsl)) != FAILED_ADDR);
             }
-		} else if (sector.status == FDB_SECTOR_STORE_EMPTY) {
-			return;
-		}
+        } else if (sector.status == FDB_SECTOR_STORE_EMPTY) {
+            return;
+        }
         traversed_len += db_sec_size(db);
     } while ((sec_addr = get_next_sector_addr(db, &sector, traversed_len)) != FAILED_ADDR);
 }
@@ -620,7 +620,7 @@ static bool check_sec_hdr_cb(tsdb_sec_info_t sector, void *arg1, void *arg2)
 }
 static bool format_all_cb(tsdb_sec_info_t sector, void *arg1, void *arg2)
 {
-	fdb_tsdb_t db = arg1;
+    fdb_tsdb_t db = arg1;
 
     format_sector(db, sector->addr);
 
@@ -635,6 +635,7 @@ static void tsl_format_all(fdb_tsdb_t db)
     sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, db, NULL, format_all_cb, false);
     db->oldest_addr = 0;
     db->cur_sec.addr = 0;
+    db->last_time = 0;
     /* read the current using sector info */
     read_sector_info(db, db->cur_sec.addr, &db->cur_sec, false);
 
@@ -667,12 +668,6 @@ void fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg)
     FDB_ASSERT(db);
 
     switch (cmd) {
-    case FDB_TSDB_CTRL_SET_ROLLOVER:
-        db->rollover = *(bool *)arg;
-        break;
-    case FDB_TSDB_CTRL_GET_ROLLOVER:
-        *(bool *)arg = db->rollover;
-        break;
     case FDB_TSDB_CTRL_SET_SEC_SIZE:
         /* the sector size change MUST before database initialization */
         FDB_ASSERT(db->parent.init_ok == false);
@@ -686,6 +681,15 @@ void fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg)
         break;
     case FDB_TSDB_CTRL_SET_UNLOCK:
         db->parent.unlock = (void (*)(fdb_db_t db))arg;
+        break;
+    case FDB_TSDB_CTRL_SET_ROLLOVER:
+        db->rollover = *(bool *)arg;
+        break;
+    case FDB_TSDB_CTRL_GET_ROLLOVER:
+        *(bool *)arg = db->rollover;
+        break;
+    case FDB_TSDB_CTRL_GET_LAST_TIME:
+        *(fdb_time_t *)arg = db->last_time;
         break;
     }
 }
@@ -753,6 +757,21 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *part_name, 
             db->cur_sec.addr);
     /* read the current using sector info */
     read_sector_info(db, db->cur_sec.addr, &db->cur_sec, true);
+    /* get last save time */
+    if (db->cur_sec.status == FDB_SECTOR_STORE_USING) {
+        db->last_time = db->cur_sec.end_time;
+    } else if (db->cur_sec.status == FDB_SECTOR_STORE_EMPTY && db->oldest_addr != db->cur_sec.addr) {
+        struct tsdb_sec_info sec;
+        uint32_t addr = db->cur_sec.addr;
+
+        if (addr == 0) {
+            addr = db_part_size(db) - db_sec_size(db);
+        } else {
+            addr -= db_sec_size(db);
+        }
+        read_sector_info(db, addr, &sec, false);
+        db->last_time = sec.end_time;
+    }
 
 __exit:
 
