@@ -60,7 +60,12 @@ static bool test_fdb_tsl_iter_cb(fdb_tsl_t tsl, void *arg)
     read_len = fdb_blob_read((fdb_db_t) &test_tsdb, fdb_tsl_to_blob(tsl, &blob));
 
     data[read_len] = '\0';
-    uassert_true(tsl->time == atoi(data));
+
+    if (arg == NULL) {
+        uassert_true(tsl->time == atoi(data));
+    } else {
+        uassert_true(tsl->time == *((fdb_time_t *)arg));
+    }
 
     return false;
 }
@@ -74,6 +79,9 @@ static void test_fdb_tsl_iter_by_time(void)
 {
     fdb_time_t from = 0, to = TEST_TS_COUNT -1;
 
+    for (fdb_time_t cur = from; cur <= to; cur ++) {
+        fdb_tsl_iter_by_time(&test_tsdb, cur, cur, test_fdb_tsl_iter_cb, &cur);
+    }
     fdb_tsl_iter_by_time(&test_tsdb, from, to, test_fdb_tsl_iter_cb, NULL);
 }
 
