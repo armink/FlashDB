@@ -483,8 +483,7 @@ void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl
                 /* copy the current using sector status  */
                 sector = db->cur_sec;
             }
-            if ((!found_start_tsl && ((sector.start_time <= from && sector.end_time >= from) || (sector.start_time <= to)))
-                    || (found_start_tsl)) {
+            if ((!found_start_tsl && (from >= sector.start_time && from <= sector.end_time)) || (found_start_tsl)) {
                 uint32_t start = sector.addr + SECTOR_HDR_DATA_SIZE, end = sector.end_idx;
 
                 found_start_tsl = true;
