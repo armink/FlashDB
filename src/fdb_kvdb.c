@@ -1670,7 +1670,7 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
         /** Set kv->addr.start to 0 when we get into a new sector so that if we successfully get the next sector info,
          *  the kv->addr.start is set to the new sector.addr + SECTOR_HDR_DATA_SIZE.
         */
-        kv->addr.start == 0;
+        kv->addr.start = 0;
     } while ((itr->sector_addr = get_next_sector_addr(db, &sector)) != FAILED_ADDR);
     /* Finally we have iterated all the KVs. */
     return false;
