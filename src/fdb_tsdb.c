@@ -456,7 +456,7 @@ void fdb_tsl_iter(fdb_tsdb_t db, fdb_tsl_cb cb, void *arg)
 void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl_cb cb, void *cb_arg)
 {
     struct tsdb_sec_info sector;
-    uint32_t sec_addr, traversed_len = 0;
+    uint32_t sec_addr, oldest_addr = db->oldest_addr, traversed_len = 0;
     struct fdb_tsl tsl;
     bool found_start_tsl = false;
 
@@ -471,7 +471,7 @@ void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl
         return;
     }
 
-    sec_addr = db->oldest_addr;
+    sec_addr = oldest_addr;
     /* search all sectors */
     do {
         if (read_sector_info(db, sec_addr, &sector, false) != FDB_NO_ERR) {
@@ -483,7 +483,8 @@ void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl
                 /* copy the current using sector status  */
                 sector = db->cur_sec;
             }
-            if ((!found_start_tsl && (from >= sector.start_time && from <= sector.end_time)) || (found_start_tsl)) {
+            if ((!found_start_tsl && ((from >= sector.start_time && from <= sector.end_time)
+                            || (sec_addr == oldest_addr && from <= sector.start_time))) || (found_start_tsl)) {
                 uint32_t start = sector.addr + SECTOR_HDR_DATA_SIZE, end = sector.end_idx;
 
                 found_start_tsl = true;
