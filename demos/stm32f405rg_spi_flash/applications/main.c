@@ -28,6 +28,8 @@ static struct fdb_default_kv_node default_kv_table[] = {
 static struct fdb_kvdb kvdb = { 0 };
 /* TSDB object */
 struct fdb_tsdb tsdb = { 0 };
+/* counts for simulated timestamp */
+static int counts = 0;
 
 extern void kvdb_basic_sample(fdb_kvdb_t kvdb);
 extern void kvdb_type_string_sample(fdb_kvdb_t kvdb);
@@ -46,11 +48,10 @@ static void unlock(fdb_db_t db)
 
 static fdb_time_t get_time(void)
 {
-    static int counts = 0;
     /* Using the counts instead of timestamp.
      * Please change this function to return RTC time.
      */
-    return counts++;
+    return ++counts;
 }
 
 int main(void)
@@ -106,6 +107,8 @@ int main(void)
          *        NULL: The user data if you need, now is empty.
          */
         result = fdb_tsdb_init(&tsdb, "log", "fdb_tsdb1", get_time, 128, NULL);
+        /* read last saved time for simulated timestamp */
+        fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_GET_LAST_TIME, &counts);
 
         if (result != FDB_NO_ERR) {
             return -1;
