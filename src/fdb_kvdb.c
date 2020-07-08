@@ -11,6 +11,7 @@
  * Key-Value Database feature implement source file.
  */
 
+#include <inttypes.h>
 #include <string.h>
 #include <flashdb.h>
 #include <fdb_low_lvl.h>
@@ -322,7 +323,7 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
         kv->len = KV_HDR_DATA_SIZE;
         if (kv->status != FDB_KV_ERR_HDR) {
             kv->status = FDB_KV_ERR_HDR;
-            FDB_DEBUG("Error: The KV @0x%08lX length has an error.\n", kv->addr.start);
+            FDB_DEBUG("Error: The KV @0x%08" PRIX32 " length has an error.\n", kv->addr.start);
             _fdb_write_status((fdb_db_t)db, kv->addr.start, kv_hdr.status_table, FDB_KV_STATUS_NUM, FDB_KV_ERR_HDR);
         }
         kv->crc_is_ok = false;
@@ -410,7 +411,7 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
                 read_kv(db, &kv_obj);
                 if (!kv_obj.crc_is_ok) {
                     if (kv_obj.status != FDB_KV_PRE_WRITE && kv_obj.status != FDB_KV_ERR_HDR) {
-                        FDB_INFO("Error: The KV (@0x%08lX) CRC32 check failed!\n", kv_obj.addr.start);
+                        FDB_INFO("Error: The KV (@0x%08" PRIX32 ") CRC32 check failed!\n", kv_obj.addr.start);
                         sector->remain = 0;
                         result = FDB_READ_ERR;
                         break;
@@ -680,7 +681,7 @@ char *fdb_kv_get(fdb_kvdb_t db, const char *key)
             value[get_size] = '\0';
             return value;
         } else if (blob.saved.len > FDB_STR_KV_VALUE_MAX_SIZE) {
-            FDB_INFO("Warning: The default string KV value buffer length (%d) is too less (%d).\n", FDB_STR_KV_VALUE_MAX_SIZE,
+            FDB_INFO("Warning: The default string KV value buffer length (%d) is too less (%zu).\n", FDB_STR_KV_VALUE_MAX_SIZE,
                     blob.saved.len);
         } else {
             FDB_INFO("Warning: The KV value isn't string. Could not be returned\n");
@@ -953,7 +954,7 @@ static fdb_err_t move_kv(fdb_kvdb_t db, fdb_kv_t kv)
 #endif /* FDB_KV_USING_CACHE */
     }
 
-    FDB_DEBUG("Moved the KV (%.*s) from 0x%08lX to 0x%08lX.\n", kv->name_len, kv->name, kv->addr.start, kv_addr);
+    FDB_DEBUG("Moved the KV (%.*s) from 0x%08" PRIX32 " to 0x%08" PRIX32 ".\n", kv->name_len, kv->name, kv->addr.start, kv_addr);
 
 __exit:
     del_kv(db, NULL, kv, true);
@@ -969,7 +970,7 @@ static uint32_t new_kv(fdb_kvdb_t db, kv_sec_info_t sector, size_t kv_size)
 __retry:
 
     if ((empty_kv = alloc_kv(db, sector, kv_size)) == FAILED_ADDR && db->gc_request && !already_gc) {
-        FDB_DEBUG("Warning: Alloc an KV (size %d) failed when new KV. Now will GC then retry.\n", kv_size);
+        FDB_DEBUG("Warning: Alloc an KV (size %zu) failed when new KV. Now will GC then retry.\n", kv_size);
         gc_collect(db);
         already_gc = true;
         goto __retry;
@@ -1018,7 +1019,7 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
             }
         } while ((kv.addr.start = get_next_kv_addr(db, sector, &kv)) != FAILED_ADDR);
         format_sector(db, sector->addr, SECTOR_NOT_COMBINED);
-        FDB_DEBUG("Collect a sector @0x%08lX\n", sector->addr);
+        FDB_DEBUG("Collect a sector @0x%08" PRIX32 "\n", sector->addr);
     }
 
     return false;
@@ -1038,7 +1039,7 @@ static void gc_collect(fdb_kvdb_t db)
     sector_iterator(db, &sector, FDB_SECTOR_STORE_EMPTY, &empty_sec, NULL, gc_check_cb, false);
 
     /* do GC collect */
-    FDB_DEBUG("The remain empty sector is %d, GC threshold is %d.\n", empty_sec, FDB_GC_EMPTY_SEC_THRESHOLD);
+    FDB_DEBUG("The remain empty sector is %zu, GC threshold is %d.\n", empty_sec, FDB_GC_EMPTY_SEC_THRESHOLD);
     if (empty_sec <= FDB_GC_EMPTY_SEC_THRESHOLD) {
         sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, db, NULL, do_gc, false);
     }
@@ -1346,7 +1347,7 @@ __reload:
                 print_value = true;
                 goto __reload;
             } else if (!value_is_str) {
-                FDB_PRINT("blob @0x%08lX %lubytes", kv->addr.value, kv->value_len);
+                FDB_PRINT("blob @0x%08" PRIX32 " %" PRIu32 "bytes", kv->addr.value, kv->value_len);
             }
             FDB_PRINT("\n");
         }
@@ -1377,7 +1378,7 @@ void fdb_kv_print(fdb_kvdb_t db)
     kv_iterator(db, &kv, &using_size, db, print_kv_cb);
 
     FDB_PRINT("\nmode: next generation\n");
-    FDB_PRINT("size: %lu/%lu bytes.\n", using_size + (SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE,
+    FDB_PRINT("size: %zu/%zu bytes.\n", using_size + (SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE,
             db_part_size(db) - db_sec_size(db) * FDB_GC_EMPTY_SEC_THRESHOLD);
 
     /* unlock the KV cache */
@@ -1398,7 +1399,7 @@ static void kv_auto_update(fdb_kvdb_t db)
             struct fdb_kv kv;
             size_t i, value_len;
             struct kvdb_sec_info sector;
-            FDB_DEBUG("Update the KV from version %d to %d.\n", saved_ver_num, setting_ver_num);
+            FDB_DEBUG("Update the KV from version %zu to %zu.\n", saved_ver_num, setting_ver_num);
             for (i = 0; i < db->default_kvs.num; i++) {
                 /* add a new KV when it's not found */
                 if (!find_kv(db, db->default_kvs.kvs[i].key, &kv)) {
@@ -1429,7 +1430,7 @@ static bool check_sec_hdr_cb(kv_sec_info_t sector, void *arg1, void *arg2)
         size_t *failed_count = arg1;
         fdb_kvdb_t db = arg2;
 
-        FDB_INFO("Warning: Sector header check failed. Format this sector (0x%08lX).\n", sector->addr);
+        FDB_INFO("Warning: Sector header check failed. Format this sector (0x%08" PRIX32 ").\n", sector->addr);
         (*failed_count) ++;
         format_sector(db, sector->addr, SECTOR_NOT_COMBINED);
     }
@@ -1462,7 +1463,7 @@ static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
         if (move_kv(db, kv) == FDB_NO_ERR) {
             FDB_DEBUG("Recovery the KV successful.\n");
         } else {
-            FDB_DEBUG("Warning: Moved an KV (size %lu) failed when recovery. Now will GC then retry.\n", kv->len);
+            FDB_DEBUG("Warning: Moved an KV (size %" PRIu32 ") failed when recovery. Now will GC then retry.\n", kv->len);
             return true;
         }
     } else if (kv->status == FDB_KV_PRE_WRITE) {
@@ -1595,7 +1596,7 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
     }
 #endif /* FDB_KV_USING_CACHE */
 
-    FDB_DEBUG("KVDB in partition %s, size is %u bytes.\n", ((fdb_db_t)db)->part->name, db_part_size(db));
+    FDB_DEBUG("KVDB in partition %s, size is %zu bytes.\n", ((fdb_db_t)db)->part->name, db_part_size(db));
 
     result = _fdb_kv_load(db);
 
@@ -1670,7 +1671,7 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
         /** Set kv->addr.start to 0 when we get into a new sector so that if we successfully get the next sector info,
          *  the kv->addr.start is set to the new sector.addr + SECTOR_HDR_DATA_SIZE.
         */
-        kv->addr.start == 0;
+        kv->addr.start = 0;
     } while ((itr->sector_addr = get_next_sector_addr(db, &sector)) != FAILED_ADDR);
     /* Finally we have iterated all the KVs. */
     return false;
