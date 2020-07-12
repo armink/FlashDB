@@ -1,0 +1,30 @@
+language: python
+sudo: required
+
+notifications:
+  email: false
+
+python:
+  - "3.7"
+
+install:
+  - sudo apt-get update
+  - "sudo apt-get -yqq install scons qemu git || true"
+  - "qemu-system-arm --version || true"
+  - "wget -q https://github.com/RT-Thread/toolchains-ci/releases/download/arm-2017q2-v6/gcc-arm-none-eabi-6-2017-q2-update-linux.tar.bz2 && sudo tar xjf gcc-arm-none-eabi-6-2017-q2-update-linux.tar.bz2 -C /opt && export RTT_EXEC_PATH=/opt/gcc-arm-none-eabi-6-2017-q2-update/bin && /opt/gcc-arm-none-eabi-6-2017-q2-update/bin/arm-none-eabi-gcc --version || true"
+  - export UTEST_RUNNER_PATH='../UtestRunner'
+  - export TEST_BSP_ROOT='../AutoTestBsp'
+  - "git clone https://github.com/armink/UtestRunner.git $UTEST_RUNNER_PATH"
+  - "git clone https://github.com/armink/FlashDBAutoTestBSP.git $TEST_BSP_ROOT"
+
+stage: test
+script:
+  - "cp -rf src $TEST_BSP_ROOT/packages/FlashDB/src"
+  - "cp -rf tests $TEST_BSP_ROOT/packages/FlashDB/tests"
+  - "cp -rf inc/fdb_def.h $TEST_BSP_ROOT/packages/FlashDB/inc/fdb_def.h"
+  - "cp -rf inc/fdb_low_lvl.h $TEST_BSP_ROOT/packages/FlashDB/inc/fdb_low_lvl.h"
+  - "cp -rf inc/flashdb.h $TEST_BSP_ROOT/packages/FlashDB/inc/flashdb.h"
+  - "scons -j$(nproc) -C $TEST_BSP_ROOT || true"
+  - python3 $UTEST_RUNNER_PATH/qemu_runner.py --elf $TEST_BSP_ROOT/rtthread.elf --sd $TEST_BSP_ROOT/sd.bin
+  - cat rtt_console.log
+
