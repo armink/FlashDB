@@ -5,8 +5,7 @@
  *
  * Change Logs:
  * Date           Author       Notes
- * 2019-10-26     ChenYong     first version
- * 2020-05-08     Chenyaxing   add memory and clock information
+ * 2020-07-12     RealThread   first version
  */
 
 #ifndef __BOARD_H__
@@ -48,12 +47,6 @@ extern "C"
  *                 such as     #define BSP_UART1_TX_PIN       "PA9"
  *                             #define BSP_UART1_RX_PIN       "PA10"
  *
- * STEP 3, if you want using SERIAL DMA, you must open it in the RT-Thread Settings.
- *                 RT-Thread Setting -> Components -> Device Drivers -> Serial Device Drivers -> Enable Serial DMA Mode
- *
- * STEP 4, according to serial port number to define serial port tx/rx DMA function in the board.h file
- *                 such as     #define BSP_UART1_RX_USING_DMA
- *
  */
 
 #define BSP_USING_UART1
@@ -62,4 +55,9 @@ extern "C"
 
 /*-------------------------- UART CONFIG END --------------------------*/
 extern void wait_ms(unsigned long ms_time);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* __BOARD_H__ */

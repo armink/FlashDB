@@ -159,7 +159,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="fal/samples/porting/fal_flash_stm32f4.c|applications/syscall_armlibc.c|libraries/CMSIS/Device/ST/STM32F4xx/Source/Templates/arm|fal/samples/porting/fal_flash_stm32f2_port.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="fal/samples/porting/fal_flash_stm32f1_port.c|fal/samples/porting/fal_flash_stm32f4.c|applications/syscall_armlibc.c|libraries/CMSIS/Device/ST/STM32F4xx/Source/Templates/arm|fal/samples/porting/fal_flash_stm32f2_port.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
