@@ -4,10 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <string.h>
 #include <fal.h>
-
 #include <stm32f1xx.h>
-#include "mcu_include.h"
 
 #if defined(STM32F103xE)
 #define PAGE_SIZE     2048
@@ -21,11 +20,11 @@ STM32F1会因容量不同而不同
     大容量和互联型产品主存储块256KB以上，  每页2KB。
 
 GD32   会因容量不同而不同
-    1. Low-density Products     Flash容量从 16KB到  32KB的产品           
-    2. Medium-density Products  Flash容量从 64KB到 128KB的产品   
-          全是1K                  
-    3. High-density Products    Flash容量从256KB到 512KB的产品 
-          全是2K                  
+    1. Low-density Products     Flash容量从 16KB到  32KB的产品
+    2. Medium-density Products  Flash容量从 64KB到 128KB的产品
+          全是1K
+    3. High-density Products    Flash容量从256KB到 512KB的产品
+          全是2K
     4. XL-density Products      Flash容量从768KB到3072KB的产品
           <512K 是2K
           >512K 是4K
@@ -48,6 +47,11 @@ static int init(void)
 static int ef_err_port_cnt = 0;
 int on_ic_read_cnt  = 0;
 int on_ic_write_cnt = 0;
+
+void feed_dog(void)
+{
+
+}
 
 static int read(long offset, uint8_t *buf, size_t size)
 {
@@ -107,8 +111,6 @@ static int write(long offset, const uint8_t *buf, size_t size)
 
 static int erase(long offset, size_t size)
 {
-    size_t erased_size = 0;
-    uint32_t cur_erase_sector;
     uint32_t addr = stm32_onchip_flash.addr + offset;
 
     HAL_StatusTypeDef flash_status;
