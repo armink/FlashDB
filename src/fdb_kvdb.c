@@ -1378,8 +1378,8 @@ void fdb_kv_print(fdb_kvdb_t db)
     kv_iterator(db, &kv, &using_size, db, print_kv_cb);
 
     FDB_PRINT("\nmode: next generation\n");
-    FDB_PRINT("size: %zu/%zu bytes.\n", using_size + (SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE,
-            db_part_size(db) - db_sec_size(db) * FDB_GC_EMPTY_SEC_THRESHOLD);
+    FDB_PRINT("size: %zu/%zu bytes.\n", using_size + (size_t)((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE),
+            (size_t)(db_part_size(db) - db_sec_size(db) * FDB_GC_EMPTY_SEC_THRESHOLD));
 
     /* unlock the KV cache */
     db_unlock(db);
