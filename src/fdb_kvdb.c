@@ -681,7 +681,7 @@ char *fdb_kv_get(fdb_kvdb_t db, const char *key)
             value[get_size] = '\0';
             return value;
         } else if (blob.saved.len > FDB_STR_KV_VALUE_MAX_SIZE) {
-            FDB_INFO("Warning: The default string KV value buffer length (%d) is too less (%zu).\n", FDB_STR_KV_VALUE_MAX_SIZE,
+            FDB_INFO("Warning: The default string KV value buffer length (%d) is too less (%u).\n", FDB_STR_KV_VALUE_MAX_SIZE,
                     blob.saved.len);
         } else {
             FDB_INFO("Warning: The KV value isn't string. Could not be returned\n");
@@ -970,7 +970,7 @@ static uint32_t new_kv(fdb_kvdb_t db, kv_sec_info_t sector, size_t kv_size)
 __retry:
 
     if ((empty_kv = alloc_kv(db, sector, kv_size)) == FAILED_ADDR && db->gc_request && !already_gc) {
-        FDB_DEBUG("Warning: Alloc an KV (size %zu) failed when new KV. Now will GC then retry.\n", kv_size);
+        FDB_DEBUG("Warning: Alloc an KV (size %u) failed when new KV. Now will GC then retry.\n", kv_size);
         gc_collect(db);
         already_gc = true;
         goto __retry;
@@ -1039,7 +1039,7 @@ static void gc_collect(fdb_kvdb_t db)
     sector_iterator(db, &sector, FDB_SECTOR_STORE_EMPTY, &empty_sec, NULL, gc_check_cb, false);
 
     /* do GC collect */
-    FDB_DEBUG("The remain empty sector is %zu, GC threshold is %d.\n", empty_sec, FDB_GC_EMPTY_SEC_THRESHOLD);
+    FDB_DEBUG("The remain empty sector is %u, GC threshold is %d.\n", empty_sec, FDB_GC_EMPTY_SEC_THRESHOLD);
     if (empty_sec <= FDB_GC_EMPTY_SEC_THRESHOLD) {
         sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, db, NULL, do_gc, false);
     }
@@ -1378,7 +1378,7 @@ void fdb_kv_print(fdb_kvdb_t db)
     kv_iterator(db, &kv, &using_size, db, print_kv_cb);
 
     FDB_PRINT("\nmode: next generation\n");
-    FDB_PRINT("size: %zu/%zu bytes.\n", using_size + (size_t)((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE),
+    FDB_PRINT("size: %u/%u bytes.\n", using_size + (size_t)((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE),
             (size_t)(db_part_size(db) - db_sec_size(db) * FDB_GC_EMPTY_SEC_THRESHOLD));
 
     /* unlock the KV cache */
@@ -1399,7 +1399,7 @@ static void kv_auto_update(fdb_kvdb_t db)
             struct fdb_kv kv;
             size_t i, value_len;
             struct kvdb_sec_info sector;
-            FDB_DEBUG("Update the KV from version %zu to %zu.\n", saved_ver_num, setting_ver_num);
+            FDB_DEBUG("Update the KV from version %u to %u.\n", saved_ver_num, setting_ver_num);
             for (i = 0; i < db->default_kvs.num; i++) {
                 /* add a new KV when it's not found */
                 if (!find_kv(db, db->default_kvs.kvs[i].key, &kv)) {
@@ -1596,7 +1596,7 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
     }
 #endif /* FDB_KV_USING_CACHE */
 
-    FDB_DEBUG("KVDB in partition %s, size is %zu bytes.\n", ((fdb_db_t)db)->part->name, db_part_size(db));
+    FDB_DEBUG("KVDB in partition %s, size is %u bytes.\n", ((fdb_db_t)db)->part->name, db_part_size(db));
 
     result = _fdb_kv_load(db);
 
