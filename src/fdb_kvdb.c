@@ -1430,7 +1430,7 @@ static bool check_sec_hdr_cb(kv_sec_info_t sector, void *arg1, void *arg2)
         size_t *failed_count = arg1;
         fdb_kvdb_t db = arg2;
 
-        FDB_INFO("Warning: Sector header check failed. Format this sector (0x%08" PRIX32 ").\n", sector->addr);
+        FDB_INFO("Sector header check failed. Format this sector (0x%08" PRIX32 ").\n", sector->addr);
         (*failed_count) ++;
         format_sector(db, sector->addr, SECTOR_NOT_COMBINED);
     }
@@ -1494,7 +1494,7 @@ fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
     sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &check_failed_count, db, check_sec_hdr_cb, false);
     /* all sector header check failed */
     if (check_failed_count == SECTOR_NUM) {
-        FDB_INFO("Warning: All sector header check failed. Set it to default.\n");
+        FDB_INFO("All sector header check failed. Set it to default.\n");
         fdb_kv_set_default(db);
     }
 
