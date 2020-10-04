@@ -32,6 +32,8 @@ void tsdb_sample(fdb_tsdb_t tsdb)
 {
     struct fdb_blob blob;
 
+    FDB_INFO("==================== tsdb_sample ====================\n");
+
     { /* APPEND new TSL (time series log) */
         struct env_status status;
 
@@ -74,6 +76,8 @@ void tsdb_sample(fdb_tsdb_t tsdb)
          */
         fdb_tsl_iter(tsdb, set_status_cb, tsdb);
     }
+
+    FDB_INFO("===========================================================\n");
 }
 
 static bool query_cb(fdb_tsl_t tsl, void *arg)

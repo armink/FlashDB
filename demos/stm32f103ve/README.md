@@ -23,7 +23,7 @@ Connect the board to PC by serial port and open the PC serial terminal.
 support 2 kinds of IDEs
 
 - Keil MDK: open `RVMDK\FlashDB.uvprojx`
-- [RT-Thread Studio](https://www.rt-thread.io/studio.html): import this folder by import wizard
+- [RT-Studio](https://www.rt-thread.io/studio.html): import this folder by import wizard
 
 ### Step3: build and download
 

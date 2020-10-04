@@ -21,6 +21,8 @@ void kvdb_type_blob_sample(fdb_kvdb_t kvdb)
 {
     struct fdb_blob blob;
 
+    FDB_INFO("==================== kvdb_type_blob_sample ====================\n");
+
     { /* CREATE new Key-Value */
         int temp_data = 36;
 
@@ -54,6 +56,8 @@ void kvdb_type_blob_sample(fdb_kvdb_t kvdb)
         fdb_kv_del(kvdb, "temp");
         FDB_INFO("delete the 'temp' finish\n");
     }
+
+    FDB_INFO("===========================================================\n");
 }
 
 #endif /* FDB_USING_KVDB */
