@@ -20,8 +20,8 @@
 
 void kvdb_type_string_sample(fdb_kvdb_t kvdb)
 {
-
     FDB_INFO("==================== kvdb_type_string_sample ====================\n");
+
     { /* CREATE new Key-Value */
         char temp_data[10] = "36C";
 

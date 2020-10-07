@@ -47,7 +47,7 @@ void kvdb_type_blob_sample(fdb_kvdb_t kvdb)
     { /* CHANGE the KV value */
         int temp_data = 38;
 
-        /* change the "temp" KV's value to 38.1 */
+        /* change the "temp" KV's value to 38 */
         fdb_kv_set_blob(kvdb, "temp", fdb_blob_make(&blob, &temp_data, sizeof(temp_data)));
         FDB_INFO("set 'temp' value to %d\n", temp_data);
     }
