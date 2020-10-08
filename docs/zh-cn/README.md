@@ -68,32 +68,9 @@ Query total spent 1475 (ms) for 13422 TSL, min 0, max 1, average: 0.11 ms/per
 
 上面是 IAR 的 map 文件信息，可见 FlashDB 的资源占用非常低
 
-## 如何使用
-
-### 移植
-
-FlashDB 底层的 Flash 管理及操作依赖于 RT-Thread 的 FAL (Flash Abstraction Layer) Flash 抽象层开源软件包 ，该开源库也支持运行在 **裸机平台**  [(点击查看介绍)](http://packages.rt-thread.org/detail.html?package=fal)。所以只需要将所用到的 Flash 对接到 FAL ，即可完成整个移植工作。
-
- FAL 移植主要流程：
-
-- 定义 flash 设备，详见 ([GitHub](https://github.com/RT-Thread-packages/fal#21%E5%AE%9A%E4%B9%89-flash-%E8%AE%BE%E5%A4%87)|[Gitee](https://gitee.com/RT-Thread-Mirror/fal#21%E5%AE%9A%E4%B9%89-flash-%E8%AE%BE%E5%A4%87))
-- 定义 flash 设备表，详见 ([GitHub](https://github.com/RT-Thread-packages/fal#22%E5%AE%9A%E4%B9%89-flash-%E8%AE%BE%E5%A4%87%E8%A1%A8)|[Gitee](https://gitee.com/RT-Thread-Mirror/fal#22%E5%AE%9A%E4%B9%89-flash-%E8%AE%BE%E5%A4%87%E8%A1%A8))
-- 定义 flash 分区表，详见 ([GitHub](https://github.com/RT-Thread-packages/fal#23%E5%AE%9A%E4%B9%89-flash-%E5%88%86%E5%8C%BA%E8%A1%A8)|[Gitee](https://gitee.com/RT-Thread-Mirror/fal#23%E5%AE%9A%E4%B9%89-flash-%E5%88%86%E5%8C%BA%E8%A1%A8))
-
-### 示例
-
-FlashDB 提供了主要功能的示例，直接加入工程即可运行，并具有一定的参考性
-
-| 文件路径                                                     | 介绍                                    | 备注 |
-| ------------------------------------------------------------ | --------------------------------------- | ---- |
-| [`samples/kvdb_basic_sample.c`](samples/kvdb_basic_sample.c) | KVDB 基础示例，获取当前启动次数         |      |
-| [`samples/kvdb_type_string_sample.c`](samples/kvdb_type_string_sample.c) | KVDB 使用字符型键值的示例               |      |
-| [`samples/kvdb_type_blob_sample.c`](samples/kvdb_type_blob_sample.c) | KVDB 使用 blob 型（任意类型）键值的示例 |      |
-| [`samples/tsdb_sample.c`](samples/tsdb_sample.c)             | TSDB 示例                               |      |
-
 ## 支持
 
- ![support](docs/_media/wechat_support.png)
+ ![support](_media/wechat_support.png)
 
 如果 FlashDB 解决了你的问题，不妨扫描上面二维码请我 **喝杯咖啡**~ 
 
