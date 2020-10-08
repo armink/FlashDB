@@ -4,6 +4,7 @@
     - [stm32f103ve](demo-stm32f103ve.md)
     - [stm32f405rg](demo-stm32f405rg.md)
     - [stm32f405rg-spi-flash](demo-stm32f405rg-spi-flash.md)
+  - [Demo details](demo-details.md)
 - Samples
   - KV database
     - [basic](sample-kvdb-basic.md)

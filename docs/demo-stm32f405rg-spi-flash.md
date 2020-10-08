@@ -38,3 +38,4 @@ Download the firmware to your board when build successful.
 
 This demo's log will output to PC serial.
 
+> PS: Demo project code and log analysis, see: Getting Started -> [Demo details](demo-details.md)
