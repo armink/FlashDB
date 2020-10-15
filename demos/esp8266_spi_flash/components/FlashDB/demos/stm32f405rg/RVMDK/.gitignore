@@ -1,0 +1,11 @@
+/Output
+/Listings
+/Objects
+/DebugConfig
+JLinkLog.txt
+JLinkSettings.ini
+*.bak
+*.dep
+*.uvguix*
+*.uvgui*
+*.scvd
