@@ -55,7 +55,8 @@
 #else
     #error not supported tool chain
 #endif /* __CC_ARM */
-USED static const struct fal_partition partition_table_def[] SECTION("FalPartTable") = FAL_PART_TABLE;
+//USED static const struct fal_partition partition_table_def[] SECTION("FalPartTable") = FAL_PART_TABLE;
+static const struct fal_partition partition_table_def[] = FAL_PART_TABLE;
 static const struct fal_partition *partition_table = NULL;
 
 #else /* FAL_PART_HAS_TABLE_CFG */
