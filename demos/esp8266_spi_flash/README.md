@@ -4,19 +4,19 @@
 
 # ESP8266开发环境
 
-1.Ubuntu 16.04 64位
-2.使用乐鑫IDF:ESP8266_RTOS_SDK(版本:ESP-IDF v3.2-252-g73bf28b-dirty),下载:https://github.com/espressif/ESP8266_RTOS_SDK.git
-3.安装交叉编译工具链，下载:https://dl.espressif.com/dl/xtensa-lx106-elf-linux64-1.22.0-100-ge567ec7-5.2.0.tar.gz
+* Ubuntu 16.04 64位
+* 用乐鑫IDF:ESP8266_RTOS_SDK(版本:ESP-IDF v3.2-252-g73bf28b-dirty),下载:https://github.com/espressif/ESP8266_RTOS_SDK.git
+* 安装交叉编译工具链，下载:https://dl.espressif.com/dl/xtensa-lx106-elf-linux64-1.22.0-100-ge567ec7-5.2.0.tar.gz
 
 # ESP8266开发指南
 
-1.详细的安装开发教程，请参考:https://docs.espressif.com/projects/esp8266-rtos-sdk/en/latest/get-started/index.html
+* 详细的安装开发教程，请参考:https://docs.espressif.com/projects/esp8266-rtos-sdk/en/latest/get-started/index.html
 
 # 编译和下载
 
-1.cd进入esp8266_spi_flash目录
-2.make all
-3.使用串口线把8266开发板连接到PC
-4.使能串口，执行命令：sudo chmod 777 /dev/ttyUSB*
-5.make flash
-6.make monitor
+* cd进入esp8266_spi_flash目录
+* make all
+* 使用串口线把8266开发板连接到PC
+* 使能串口，执行命令：sudo chmod 777 /dev/ttyUSB*
+* make flash
+* make monitor
