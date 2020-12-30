@@ -6,7 +6,34 @@
 
 #include <string.h>
 #include <fal.h>
-#include <stm32f1xx.h>
+#if defined(USE_STDPERIPH_DRIVER) 
+#include <stm32f10x.h>      //使用标准库
+
+/* Macro to get variable aligned on 4-bytes, for __ICCARM__ the directive "#pragma data_alignment=4" must be used instead */
+#if defined ( __GNUC__ ) && !defined (__CC_ARM) /* GNU Compiler */
+#ifndef __ALIGN_END
+#define __ALIGN_END    __attribute__ ((aligned (4)))
+#endif /* __ALIGN_END */
+#ifndef __ALIGN_BEGIN
+#define __ALIGN_BEGIN
+#endif /* __ALIGN_BEGIN */
+#else
+#ifndef __ALIGN_END
+#define __ALIGN_END
+#endif /* __ALIGN_END */
+#ifndef __ALIGN_BEGIN
+#if defined   (__CC_ARM)      /* ARM Compiler */
+#define __ALIGN_BEGIN    __align(4)
+#elif defined (__ICCARM__)    /* IAR Compiler */
+#define __ALIGN_BEGIN
+#endif /* __CC_ARM */
+#endif /* __ALIGN_BEGIN */
+#endif /* __GNUC__ */
+
+
+#elif defined(USE_HAL_DRIVER)
+#include <stm32f1xx_hal.h>
+#endif
 
 #if defined(STM32F103xE)
 #define PAGE_SIZE     2048
@@ -87,8 +114,30 @@ static int write(long offset, const uint8_t *buf, size_t size)
         ef_err_port_cnt++;
 */
 
+#if defined(USE_STDPERIPH_DRIVER) 
+    FLASH_Unlock();
+    for (i = 0; i < size; i += 4, buf += 4, addr += 4) {
+        memcpy(&write_data, buf, 4); //用以保证HAL_FLASH_Program的第三个参数是内存首地址对齐
+        /* Clear All pending flags */
+        FLASH_ClearFlag(FLASH_FLAG_BSY | FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPRTERR);
+        FLASH_ProgramWord(addr, write_data);
+        read_data = *(uint32_t *)addr;
+        /* You can add your code under here. */
+        if (read_data != write_data) {
+            FLASH_Lock(); 
+            return -1;
+        }
+        else{
+			//FLash操作可能非常耗时，如果有看门狗需要喂狗，以下代码由用户实现
+           feed_dog();
+        }
+    }
+    FLASH_Lock();
+    
+#elif defined(USE_HAL_DRIVER)  
+
     HAL_FLASH_Unlock();
-    for (i = 0; i < size; i += 4, buf+=4, addr += 4) {
+    for (i = 0; i < size; i += 4, buf += 4, addr += 4) {
         memcpy(&write_data, buf, 4); //用以保证HAL_FLASH_Program的第三个参数是内存首地址对齐
         HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr, write_data);
         read_data = *(uint32_t *)addr;
@@ -103,6 +152,7 @@ static int write(long offset, const uint8_t *buf, size_t size)
         }
     }
     HAL_FLASH_Lock();
+#endif
 
     on_ic_write_cnt++;
     return size;
@@ -113,6 +163,33 @@ static int erase(long offset, size_t size)
 {
     uint32_t addr = stm32_onchip_flash.addr + offset;
 
+#if defined(USE_STDPERIPH_DRIVER) 
+    FLASH_Status flash_status ;
+    size_t erase_pages, i;
+    uint32_t PageAddress = 0;
+
+    erase_pages = size / PAGE_SIZE;
+    if (size % PAGE_SIZE != 0) {
+        erase_pages++;
+    }
+
+    FLASH_Unlock();
+    
+    for (i = 0; i < erase_pages; i++) {
+        PageAddress = addr + (PAGE_SIZE * i);
+        flash_status = FLASH_ErasePage(PageAddress);
+        if (flash_status != FLASH_COMPLETE) {
+            FLASH_Lock(); 
+            return -1;
+        }
+        else{
+			//FLash操作可能非常耗时，如果有看门狗需要喂狗，以下代码由用户实现
+            feed_dog();
+        }
+    }
+    FLASH_Lock(); 
+    
+#elif defined(USE_HAL_DRIVER) 
     HAL_StatusTypeDef flash_status;
     size_t erase_pages, i;
     uint32_t PAGEError = 0;
@@ -140,6 +217,7 @@ static int erase(long offset, size_t size)
         }
     }
     HAL_FLASH_Lock(); 
+#endif
 
     return size;
 }
