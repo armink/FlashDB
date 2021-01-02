@@ -43,11 +43,12 @@ In the `demos` directory of the project, the following hardware demonstration pl
 
 For more detailed introduction, click on the **instructions** in the table below to view.
 
-| Hardware Platform     | Path                          | Flash Type    | Instructions                                         |
-| --------------------- | ----------------------------- | :------------ | ---------------------------------------------------- |
+| Hardware Platform     | Path                          | Flash Type    | Instructions                                   |
+| --------------------- | ----------------------------- | :------------ | ---------------------------------------------- |
 | stm32f10x             | `demos/stm32f103ve`           | stm32 on-chip | [click to view](demo-stm32f103ve.md)           |
 | stm32f40x             | `demos/stm32f405rg`           | stm32 on-chip | [click to view](demo-stm32f405rg.md)           |
 | stm32f40x + spi flash | `demos/stm32f405rg_spi_flash` | spi flash     | [click to view](demo-stm32f405rg-spi-flash.md) |
+| esp8266 + spi flash   | `demos/esp8266_spi_flash`     | spi flash     | [click to view](demo-esp8266-spi-flash.md)     |
 
 ## View sample description
 

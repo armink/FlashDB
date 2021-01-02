@@ -11,5 +11,5 @@
 - 键值数据库
 - 时序数据库
 
-[GitHub](https://github.com/armink/FlashDB/)
+[介绍](zh-cn/README.md)
 [开始使用](zh-cn/quick-started)

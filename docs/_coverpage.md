@@ -11,5 +11,5 @@
 - Key-Value database
 - Time series database
 
-[GitHub](https://github.com/armink/FlashDB/)
+[Introduction](/README.md)
 [Getting started](/quick-started)

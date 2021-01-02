@@ -83,7 +83,7 @@ FlashDB 提供了全面的文档说明，详见：http://armink.gitee.io/flashdb
 
 ## 支持
 
- ![support](docs/_media/wechat_support.png)
+ ![support](docs/zh-cn/_media/wechat_support.png)
 
 如果 FlashDB 解决了你的问题，不妨扫描上面二维码请我 **喝杯咖啡**~ 
 

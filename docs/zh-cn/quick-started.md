@@ -49,6 +49,7 @@ FlashDB 提供的演示工程默认支持两种工程：
 | stm32f10x             | `demos/stm32f103ve`           | stm32 on-chip | [点击查看](zh-cn/demo-stm32f103ve.md)           |
 | stm32f40x             | `demos/stm32f405rg`           | stm32 on-chip | [点击查看](zh-cn/demo-stm32f405rg.md)           |
 | stm32f40x + spi flash | `demos/stm32f405rg_spi_flash` | spi flash     | [点击查看](zh-cn/demo-stm32f405rg-spi-flash.md) |
+| esp8266 + spi flash   | `demos/esp8266_spi_flash`     | spi flash     | [点击查看](zh-cn/demo-esp8266-spi-flash.md)     |
 
 ## 查看示例说明
 
