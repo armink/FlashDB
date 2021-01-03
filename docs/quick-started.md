@@ -39,23 +39,24 @@ The latest code is currently hosted on GitHub. The master branch is the developm
 
 ## Choose a demo platform
 
-In the `demos` directory of the project, the following hardware demonstration platforms are currently provided. You can choose a hardware platform and experience the running process of FlashDB on a real machine.
+In the `demos` directory of the project, the following demonstration platforms are currently provided. You can choose a platform and experience the running process of FlashDB on a real machine.
 
 For more detailed introduction, click on the **instructions** in the table below to view.
 
-| Hardware Platform     | Path                          | Flash Type    | Instructions                                   |
-| --------------------- | ----------------------------- | :------------ | ---------------------------------------------- |
-| stm32f10x             | `demos/stm32f103ve`           | stm32 on-chip | [click to view](demo-stm32f103ve.md)           |
-| stm32f40x             | `demos/stm32f405rg`           | stm32 on-chip | [click to view](demo-stm32f405rg.md)           |
-| stm32f40x + spi flash | `demos/stm32f405rg_spi_flash` | spi flash     | [click to view](demo-stm32f405rg-spi-flash.md) |
-| esp8266 + spi flash   | `demos/esp8266_spi_flash`     | spi flash     | [click to view](demo-esp8266-spi-flash.md)     |
+| Platform              | Path                          | Storage Type        | Instructions                                   |
+| --------------------- | ----------------------------- | :------------------ | ---------------------------------------------- |
+| stm32f10x             | `demos/stm32f103ve`           | stm32 on-chip flash | [click to view](demo-stm32f103ve.md)           |
+| stm32f40x             | `demos/stm32f405rg`           | stm32 on-chip flash | [click to view](demo-stm32f405rg.md)           |
+| stm32f40x + spi flash | `demos/stm32f405rg_spi_flash` | spi flash           | [click to view](demo-stm32f405rg-spi-flash.md) |
+| esp8266 + spi flash   | `demos/esp8266_spi_flash`     | spi flash           | [click to view](demo-esp8266-spi-flash.md)     |
+| linux                 | `demos/linux`                 | posix file          | [click to view](demo-linux.md)                 |
 
 ## View sample description
 
 If you don't have a suitable demo platform above, you can also check the example instructions you are interested in first.
 
-| Sample file                         | Description               | Detailed explanation                           |
-| ----------------------------------- | ------------------------- | ---------------------------------------------- |
+| Sample file                         | Description               | Detailed explanation                     |
+| ----------------------------------- | ------------------------- | ---------------------------------------- |
 | `samples/kvdb_basic_sample.c`       | KVDB basic example        | [click to view](sample-kvdb-basic)       |
 | `samples/kvdb_type_string_sample.c` | KV example of string type | [click to view](sample-kvdb-type-string) |
 | `samples/kvdb_type_blob_sample.c`   | Blob type KV example      | [click to view](sample-kvdb-type-blob)   |

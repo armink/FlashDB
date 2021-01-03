@@ -5,6 +5,7 @@
     - [stm32f405rg](demo-stm32f405rg.md)
     - [stm32f405rg-spi-flash](demo-stm32f405rg-spi-flash.md)
     - [esp8266-spi-flash](demo-esp8266-spi-flash.md)
+    - [linux](demo-linux.md)
   - [Demo details](demo-details.md)
 - Samples
   - KV database

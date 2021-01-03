@@ -40,16 +40,17 @@ FlashDB 提供的演示工程默认支持两种工程：
 
 ## 选择演示平台
 
-在项目的 `demos` 目录下，目前已提供下面一些硬件演示平台，可以选择一个硬件平台，真机体验一下 FlashDB 的运行过程。
+在项目的 `demos` 目录下，目前已提供下面一些演示平台，可以选择一个平台，真机体验一下 FlashDB 的运行过程。
 
 更多详细介绍，点击下方表格中的 **使用说明** 进行查看。
 
-| 硬件平台              | 路径                          | flash 类型    | 使用说明                                        |
-| --------------------- | :---------------------------- | :------------ | ----------------------------------------------- |
-| stm32f10x             | `demos/stm32f103ve`           | stm32 on-chip | [点击查看](zh-cn/demo-stm32f103ve.md)           |
-| stm32f40x             | `demos/stm32f405rg`           | stm32 on-chip | [点击查看](zh-cn/demo-stm32f405rg.md)           |
-| stm32f40x + spi flash | `demos/stm32f405rg_spi_flash` | spi flash     | [点击查看](zh-cn/demo-stm32f405rg-spi-flash.md) |
-| esp8266 + spi flash   | `demos/esp8266_spi_flash`     | spi flash     | [点击查看](zh-cn/demo-esp8266-spi-flash.md)     |
+| 硬件平台              | 路径                          | 存储类型            | 使用说明                                        |
+| --------------------- | :---------------------------- | :------------------ | ----------------------------------------------- |
+| stm32f10x             | `demos/stm32f103ve`           | stm32 on-chip flash | [点击查看](zh-cn/demo-stm32f103ve.md)           |
+| stm32f40x             | `demos/stm32f405rg`           | stm32 on-chip flash | [点击查看](zh-cn/demo-stm32f405rg.md)           |
+| stm32f40x + spi flash | `demos/stm32f405rg_spi_flash` | spi flash           | [点击查看](zh-cn/demo-stm32f405rg-spi-flash.md) |
+| esp8266 + spi flash   | `demos/esp8266_spi_flash`     | spi flash           | [点击查看](zh-cn/demo-esp8266-spi-flash.md)     |
+| linux                 | `demos/linux`                 | posix file          | [点击查看](zh-cn/demo-linux.md)                 |
 
 ## 查看示例说明
 

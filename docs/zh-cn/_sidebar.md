@@ -5,6 +5,7 @@
     - [stm32f405rg](zh-cn/demo-stm32f405rg.md)
     - [stm32f405rg-spi-flash](zh-cn/demo-stm32f405rg-spi-flash.md)
     - [esp8266-spi-flash](zh-cn/demo-esp8266-spi-flash.md)
+    - [linux](zh-cn/demo-linux.md)
   - [演示说明](zh-cn/demo-details.md)
 - 示例
   - 键值数据库

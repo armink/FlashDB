@@ -1,6 +1,6 @@
 ![](docs/_media/flashdb.png)
 
-[![Build Status](https://travis-ci.com/armink/FlashDB.svg?branch=master)](https://travis-ci.com/armink/FlashDB) [![license](https://img.shields.io/github/license/armink/FlashDB)](https://raw.githubusercontent.com/armink/FlashDB/master/LICENSE) 
+[![Build Status](https://travis-ci.com/armink/FlashDB.svg?branch=master)](https://travis-ci.com/armink/FlashDB) [![license](https://img.shields.io/github/license/armink/FlashDB)](https://raw.githubusercontent.com/armink/FlashDB/master/LICENSE) [![docs](https://img.shields.io/badge/docs-perfect-blue)](http://armink.gitee.io/flashdb/#/zh-cn/ )
 
 [EN](README.md) | 中文
 
