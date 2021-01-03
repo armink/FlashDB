@@ -48,7 +48,8 @@
 #define db_name(db)                              (((fdb_db_t)db)->name)
 #define db_init_ok(db)                           (((fdb_db_t)db)->init_ok)
 #define db_sec_size(db)                          (((fdb_db_t)db)->sec_size)
-#define db_part_size(db)                         (((fdb_db_t)db)->part->len)
+#define db_max_size(db)                          (((fdb_db_t)db)->max_size)
+
 #define db_lock(db)                                                            \
     do {                                                                       \
         if (((fdb_db_t)db)->lock) ((fdb_db_t)db)->lock((fdb_db_t)db);          \
@@ -126,8 +127,8 @@ static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
 
 static uint32_t get_next_sector_addr(fdb_tsdb_t db, tsdb_sec_info_t pre_sec, uint32_t traversed_len)
 {
-    if (traversed_len + db_sec_size(db) <= db_part_size(db)) {
-        if (pre_sec->addr + db_sec_size(db) < db_part_size(db)) {
+    if (traversed_len + db_sec_size(db) <= db_max_size(db)) {
+        if (pre_sec->addr + db_sec_size(db) < db_max_size(db)) {
             return pre_sec->addr + db_sec_size(db);
         } else {
             /* the next sector is on the top of the partition */
@@ -306,7 +307,7 @@ static fdb_err_t update_sec_status(fdb_tsdb_t db, tsdb_sec_info_t sector, fdb_bl
             /* change current sector to full */
             _FDB_WRITE_STATUS(db, cur_sec_addr, status, FDB_SECTOR_STORE_STATUS_NUM, FDB_SECTOR_STORE_FULL);
             /* calculate next sector address */
-            if (sector->addr + db_sec_size(db) < db_part_size(db)) {
+            if (sector->addr + db_sec_size(db) < db_max_size(db)) {
                 new_sec_addr = sector->addr + db_sec_size(db);
             } else {
                 new_sec_addr = 0;
@@ -314,7 +315,7 @@ static fdb_err_t update_sec_status(fdb_tsdb_t db, tsdb_sec_info_t sector, fdb_bl
             read_sector_info(db, new_sec_addr, &db->cur_sec, false);
             if (sector->status != FDB_SECTOR_STORE_EMPTY) {
                 /* calculate the oldest sector address */
-                if (new_sec_addr + db_sec_size(db) < db_part_size(db)) {
+                if (new_sec_addr + db_sec_size(db) < db_max_size(db)) {
                     db->oldest_addr = new_sec_addr + db_sec_size(db);
                 } else {
                     db->oldest_addr = 0;
@@ -671,7 +672,7 @@ void fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg)
 
     switch (cmd) {
     case FDB_TSDB_CTRL_SET_SEC_SIZE:
-        /* the sector size change MUST before database initialization */
+        /* this change MUST before database initialization */
         FDB_ASSERT(db->parent.init_ok == false);
         db->parent.sec_size = *(uint32_t *)arg;
         break;
@@ -692,6 +693,22 @@ void fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg)
         break;
     case FDB_TSDB_CTRL_GET_LAST_TIME:
         *(fdb_time_t *)arg = db->last_time;
+        break;
+    case FDB_TSDB_CTRL_SET_FILE_MODE:
+#ifdef FDB_USING_FILE_MODE
+        /* this change MUST before database initialization */
+        FDB_ASSERT(db->parent.init_ok == false);
+        db->parent.file_mode = *(bool *)arg;
+#else
+        FDB_INFO("Error: set file mode Failed. Please defined the FDB_USING_FILE_MODE macro.");
+#endif
+        break;
+    case FDB_TSDB_CTRL_SET_MAX_SIZE:
+#ifdef FDB_USING_FILE_MODE
+        /* this change MUST before database initialization */
+        FDB_ASSERT(db->parent.init_ok == false);
+        db->parent.max_size = *(uint32_t *)arg;
+#endif
         break;
     }
 }
@@ -727,10 +744,6 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *part_name, 
     db->rollover = true;
     db->oldest_addr = FDB_DATA_UNUSED;
     db->cur_sec.addr = FDB_DATA_UNUSED;
-    /* must align with sector size */
-    FDB_ASSERT(db_part_size(db) % db_sec_size(db) == 0);
-    /* must have more than or equal 2 sector */
-    FDB_ASSERT(db_part_size(db) / db_sec_size(db) >= 2);
     /* must less than sector size */
     FDB_ASSERT(max_len < db_sec_size(db));
 
@@ -748,7 +761,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *part_name, 
             latest_addr = db->cur_sec.addr;
         }
         /* db->cur_sec is the latest sector, and the next is the oldest sector */
-        if (latest_addr + db_sec_size(db) >= db_part_size(db)) {
+        if (latest_addr + db_sec_size(db) >= db_max_size(db)) {
             /* db->cur_sec is the the bottom of the partition */
             db->oldest_addr = 0;
         } else {
@@ -767,7 +780,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *part_name, 
         uint32_t addr = db->cur_sec.addr;
 
         if (addr == 0) {
-            addr = db_part_size(db) - db_sec_size(db);
+            addr = db_max_size(db) - db_sec_size(db);
         } else {
             addr -= db_sec_size(db);
         }

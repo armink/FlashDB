@@ -23,6 +23,9 @@
 /* using TSDB (Time series database) feature */
 #define FDB_USING_TSDB
 
+/* Using FAL storage mode */
+#define FDB_USING_FAL_MODE
+
 /* the flash write granularity, unit: bit
  * only support 1(nor flash)/ 8(stm32f2/f4)/ 32(stm32f1) */
 #define FDB_WRITE_GRAN 1               /* @note you must define it for a value */

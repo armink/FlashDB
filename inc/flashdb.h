@@ -15,10 +15,16 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <time.h>
-#include <fal.h>
 #include <fdb_cfg.h>
+
+#ifdef FDB_USING_FAL_MODE
+#include <fal.h>
+#endif
+
 #include <fdb_def.h>
+
 
 #ifdef __cplusplus
 extern "C" {

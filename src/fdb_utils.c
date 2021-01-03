@@ -235,11 +235,27 @@ size_t fdb_blob_read(fdb_db_t db, fdb_blob_t blob)
     return read_len;
 }
 
+#ifdef FDB_USING_FILE_MODE
+extern fdb_err_t _fdb_file_read(fdb_db_t db, uint32_t addr, void *buf, size_t size);
+extern fdb_err_t _fdb_file_write(fdb_db_t db, uint32_t addr, const void *buf, size_t size);
+extern fdb_err_t _fdb_file_erase(fdb_db_t db, uint32_t addr, size_t size);
+#endif /* FDB_USING_FILE_LIBC */
+
 fdb_err_t _fdb_flash_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
 {
     fdb_err_t result = FDB_NO_ERR;
 
-    fal_partition_read(db->part, addr, (uint8_t *)buf, size);
+    if (db->file_mode) {
+#ifdef FDB_USING_FILE_MODE
+        return _fdb_file_read(db, addr, buf, size);
+#else
+        return FDB_READ_ERR;
+#endif
+    } else {
+#ifdef FDB_USING_FAL_MODE
+        fal_partition_read(db->storage.part, addr, (uint8_t *) buf, size);
+#endif
+    }
 
     return result;
 }
@@ -248,9 +264,18 @@ fdb_err_t _fdb_flash_erase(fdb_db_t db, uint32_t addr, size_t size)
 {
     fdb_err_t result = FDB_NO_ERR;
 
-    if (fal_partition_erase(db->part, addr, size) < 0)
-    {
-        result = FDB_ERASE_ERR;
+    if (db->file_mode) {
+#ifdef FDB_USING_FILE_MODE
+        return _fdb_file_erase(db, addr, size);
+#else
+        return FDB_ERASE_ERR;
+#endif /* FDB_USING_FILE_MODE */
+    } else {
+#ifdef FDB_USING_FAL_MODE
+        if (fal_partition_erase(db->storage.part, addr, size) < 0) {
+            result = FDB_ERASE_ERR;
+        }
+#endif
     }
 
     return result;
@@ -260,9 +285,19 @@ fdb_err_t _fdb_flash_write(fdb_db_t db, uint32_t addr, const void *buf, size_t s
 {
     fdb_err_t result = FDB_NO_ERR;
 
-    if (fal_partition_write(db->part, addr, (uint8_t *)buf, size) < 0)
-    {
-        result = FDB_WRITE_ERR;
+    if (db->file_mode) {
+#ifdef FDB_USING_FILE_MODE
+        return _fdb_file_write(db, addr, buf, size);
+#else
+        return FDB_READ_ERR;
+#endif /* FDB_USING_FILE_MODE */
+    } else {
+#ifdef FDB_USING_FAL_MODE
+        if (fal_partition_write(db->storage.part, addr, (uint8_t *)buf, size) < 0)
+        {
+            result = FDB_WRITE_ERR;
+        }
+#endif
     }
 
     return result;
