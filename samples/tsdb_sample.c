@@ -65,7 +65,7 @@ void tsdb_sample(fdb_tsdb_t tsdb)
         fdb_tsl_iter_by_time(tsdb, from_time, to_time, query_by_time_cb, tsdb);
         /* query all FDB_TSL_WRITE status TSL's count in TSDB by time */
         count = fdb_tsl_query_count(tsdb, from_time, to_time, FDB_TSL_WRITE);
-        FDB_INFO("query count is: %u\n", count);
+        FDB_INFO("query count is: %zu\n", count);
     }
 
     { /* SET the TSL status */

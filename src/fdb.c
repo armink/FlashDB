@@ -13,6 +13,7 @@
 
 #include <flashdb.h>
 #include <fdb_low_lvl.h>
+#include <string.h>
 
 #define FDB_LOG_TAG ""
 
@@ -40,9 +41,9 @@ fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *part_name, fdb
         FDB_ASSERT(db->sec_size != 0);
         FDB_ASSERT(db->max_size != 0);
 #ifdef FDB_USING_POSIX_MODE
-        db->cur_file = (void *)-1;
+        db->cur_file = -1;
 #else
-        db->cur_file = (void *)0;
+        db->cur_file = 0;
 #endif
         db->storage.dir = part_name;
         FDB_ASSERT(strlen(part_name) != 0)
@@ -94,3 +95,4 @@ void _fdb_init_finish(fdb_db_t db, fdb_err_t result)
                 db->name, (int)result);
     }
 }
+

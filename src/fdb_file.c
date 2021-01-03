@@ -34,10 +34,15 @@ static void get_db_file_path(fdb_db_t db, uint32_t addr, char *path, size_t size
 }
 
 #if defined(FDB_USING_FILE_POSIX_MODE)
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 static int open_db_file(fdb_db_t db, uint32_t addr, bool clean)
 {
-    uint32_t sec_addr = RT_ALIGN_DOWN(addr, db->sec_size);
-    int fd = (int)db->cur_file;
+    uint32_t sec_addr = FDB_ALIGN_DOWN(addr, db->sec_size);
+    int fd = db->cur_file;
     char path[DB_PATH_MAX];
 
     if (sec_addr != db->cur_sec || fd <= 0 || clean) {
@@ -49,7 +54,7 @@ static int open_db_file(fdb_db_t db, uint32_t addr, bool clean)
         }
         if (clean) {
             /* clean the old file */
-            fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0);
+            fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0777);
             if (fd <= 0) {
                 FDB_INFO("Error: open (%s) file failed.\n", path);
             }
@@ -59,12 +64,12 @@ static int open_db_file(fdb_db_t db, uint32_t addr, bool clean)
             }
         }
         /* open the database file */
-        fd = open(path, O_RDWR, 0);
+        fd = open(path, O_RDWR, 0777);
         db->cur_sec = sec_addr;
     }
-    db->cur_file = (void *)fd;
+    db->cur_file = fd;
 
-    return (int)db->cur_file;
+    return db->cur_file;
 }
 
 fdb_err_t _fdb_file_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
@@ -207,3 +212,4 @@ fdb_err_t _fdb_file_erase(fdb_db_t db, uint32_t addr, size_t size)
 #endif /* defined(FDB_USING_FILE_LIBC_MODE) */
 
 #endif /* FDB_USING_FILE_MODE */
+

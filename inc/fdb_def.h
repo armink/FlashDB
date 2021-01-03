@@ -263,7 +263,11 @@ struct fdb_db {
     bool init_ok;                                /**< initialized successfully */
     bool file_mode;                              /**< is file mode, default is false */
 #ifdef FDB_USING_FILE_MODE
-    void *cur_file;                              /**< current file object */
+#if defined(FDB_USING_FILE_POSIX_MODE)
+    int cur_file;                                /**< current file object */
+#elif defined(FDB_USING_FILE_LIBC_MODE)
+    FILE *cur_file;                              /**< current file object */
+#endif
     uint32_t cur_sec;                            /**< current operate sector address  */
 #endif
     void (*lock)(fdb_db_t db);                   /**< lock the database operate */
@@ -325,3 +329,4 @@ typedef struct fdb_blob *fdb_blob_t;
 #endif
 
 #endif /* _FDB_DEF_H_ */
+
