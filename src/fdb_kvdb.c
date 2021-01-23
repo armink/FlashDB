@@ -851,11 +851,7 @@ static fdb_err_t del_kv(fdb_kvdb_t db, const char *key, fdb_kv_t old_kv, bool co
     uint32_t dirty_status_addr;
     static bool last_is_complete_del = false;
 
-#if (KV_STATUS_TABLE_SIZE >= FDB_DIRTY_STATUS_TABLE_SIZE)
-    uint8_t status_table[KV_STATUS_TABLE_SIZE];
-#else
-    uint8_t status_table[DIRTY_STATUS_TABLE_SIZE];
-#endif
+    uint8_t status_table[KV_STATUS_TABLE_SIZE >= FDB_DIRTY_STATUS_TABLE_SIZE ? KV_STATUS_TABLE_SIZE : FDB_DIRTY_STATUS_TABLE_SIZE];
 
     /* need find KV */
     if (!old_kv) {
@@ -1613,7 +1609,7 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
     }
 #endif /* FDB_KV_USING_CACHE */
 
-    FDB_DEBUG("KVDB size is %zu bytes.\n", (size_t)db_max_size(db));
+    FDB_DEBUG("KVDB size is %u bytes.\n", db_max_size(db));
 
     result = _fdb_kv_load(db);
 
