@@ -292,7 +292,7 @@ static uint32_t get_next_kv_addr(fdb_kvdb_t db, kv_sec_info_t sector, fdb_kv_t p
                 addr = pre_kv->addr.start + FDB_WG_ALIGN(1);
             }
             /* check and find next KV address */
-            addr = find_next_kv_addr(db, addr + SECTOR_HDR_DATA_SIZE, sector->addr + db_sec_size(db));
+            addr = find_next_kv_addr(db, addr, sector->addr + db_sec_size(db));
 
             if (addr > sector->addr + db_sec_size(db) || pre_kv->len == 0) {
                 //TODO 扇区连续模式
