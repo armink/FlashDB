@@ -1190,21 +1190,21 @@ static fdb_err_t set_kv(fdb_kvdb_t db, const char *key, const void *value_buf, s
         result = del_kv(db, key, NULL, true);
     } else {
         /* make sure the flash has enough space */
-        if (new_kv_ex(db, &db->sector, strlen(key), buf_len) == FAILED_ADDR) {
+        if (new_kv_ex(db, &db->cur_sector, strlen(key), buf_len) == FAILED_ADDR) {
             return FDB_SAVED_FULL;
         }
-        kv_is_found = find_kv(db, key, &db->kv);
+        kv_is_found = find_kv(db, key, &db->cur_kv);
         /* prepare to delete the old KV */
         if (kv_is_found) {
-            result = del_kv(db, key, &db->kv, false);
+            result = del_kv(db, key, &db->cur_kv, false);
         }
         /* create the new KV */
         if (result == FDB_NO_ERR) {
-            result = create_kv_blob(db, &db->sector, key, value_buf, buf_len);
+            result = create_kv_blob(db, &db->cur_sector, key, value_buf, buf_len);
         }
         /* delete the old KV */
         if (kv_is_found && result == FDB_NO_ERR) {
-            result = del_kv(db, key, &db->kv, true);
+            result = del_kv(db, key, &db->cur_kv, true);
         }
         /* process the GC after set KV */
         if (db->gc_request) {
@@ -1394,13 +1394,11 @@ static void kv_auto_update(fdb_kvdb_t db)
     if (get_kv(db, VER_NUM_KV_NAME, &saved_ver_num, sizeof(size_t), NULL) > 0) {
         /* check version number */
         if (saved_ver_num != setting_ver_num) {
-            struct fdb_kv kv;
             size_t i, value_len;
-            struct kvdb_sec_info sector;
             FDB_DEBUG("Update the KV from version %zu to %zu.\n", saved_ver_num, setting_ver_num);
             for (i = 0; i < db->default_kvs.num; i++) {
                 /* add a new KV when it's not found */
-                if (!find_kv(db, db->default_kvs.kvs[i].key, &kv)) {
+                if (!find_kv(db, db->default_kvs.kvs[i].key, &db->cur_kv)) {
                     /* It seems to be a string when value length is 0.
                      * This mechanism is for compatibility with older versions (less then V4.0). */
                     if (db->default_kvs.kvs[i].value_len == 0) {
@@ -1408,8 +1406,8 @@ static void kv_auto_update(fdb_kvdb_t db)
                     } else {
                         value_len = db->default_kvs.kvs[i].value_len;
                     }
-                    sector.empty_kv = FAILED_ADDR;
-                    create_kv_blob(db, &sector, db->default_kvs.kvs[i].key, db->default_kvs.kvs[i].value, value_len);
+                    db->cur_sector.empty_kv = FAILED_ADDR;
+                    create_kv_blob(db, &db->cur_sector, db->default_kvs.kvs[i].key, db->default_kvs.kvs[i].value, value_len);
                 }
             }
         } else {
