@@ -94,7 +94,6 @@ fdb_err_t _fdb_file_write(fdb_db_t db, uint32_t addr, const void *buf, size_t si
         addr = addr % db->sec_size;
         lseek(fd, addr, SEEK_SET);
         write(fd, buf, size);
-        fsync(fd);
     } else {
         result = FDB_READ_ERR;
     }
@@ -203,7 +202,6 @@ fdb_err_t _fdb_file_erase(fdb_db_t db, uint32_t addr, size_t size)
         }
         memset(buf, 0xFF, BUF_SIZE);
         fwrite(buf, size - i * BUF_SIZE, 1, fp);
-        fflush(fp);
     } else {
         result = FDB_ERASE_ERR;
     }
