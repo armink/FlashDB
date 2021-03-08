@@ -37,7 +37,9 @@ static void get_db_file_path(fdb_db_t db, uint32_t addr, char *path, size_t size
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#if !defined(_MSC_VER)
 #include <unistd.h>
+#endif
 
 static int open_db_file(fdb_db_t db, uint32_t addr, bool clean)
 {
