@@ -51,7 +51,7 @@ static int read(long offset, uint8_t *buf, size_t size)
     int32_t ret;
     uint32_t addr = nor_flash0.addr + offset;
 
-    
+
     LOCK();
     ret = spi_flash_read(addr, buf, size);
     UNLOCK();
@@ -63,11 +63,11 @@ static int write(long offset, const uint8_t *buf, size_t size)
 {
     int32_t ret;
     uint32_t addr = nor_flash0.addr + offset;
-    
+
     LOCK();
     ret = spi_flash_write(addr, buf, size);
     UNLOCK();
-    
+
     return ret;
 }
 
@@ -81,7 +81,7 @@ static int erase(long offset, size_t size)
     LOCK();
     ret = spi_flash_erase_range(addr, erase_size * FLASH_ERASE_MIN_SIZE);
     UNLOCK();
-    
+
     return ret;
 }
 

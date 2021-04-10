@@ -146,7 +146,7 @@ typedef struct {
 #endif /* SFUD_USING_FLASH_INFO_TABLE */
 
 #ifdef SFUD_USING_QSPI
-/* This table saves flash read-fast instructions in QSPI mode, 
+/* This table saves flash read-fast instructions in QSPI mode,
  * SFUD can use this table to select the most appropriate read instruction for flash.
  * | mf_id | type_id | capacity_id | qspi_read_mode |
  */

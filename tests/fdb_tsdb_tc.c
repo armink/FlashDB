@@ -94,7 +94,7 @@ static void test_fdb_tsl_query_count(void)
 
 static bool est_fdb_tsl_set_status_cb(fdb_tsl_t tsl, void *arg)
 {
-	fdb_tsdb_t db = arg;
+    fdb_tsdb_t db = arg;
 
     if (tsl->time >= 0 && tsl->time < TEST_TS_USER_STATUS1_COUNT) {
         uassert_true(fdb_tsl_set_status(db, tsl, FDB_TSL_USER_STATUS1) == FDB_NO_ERR);

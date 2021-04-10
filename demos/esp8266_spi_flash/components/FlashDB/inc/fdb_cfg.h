@@ -31,7 +31,7 @@
 #define FDB_WRITE_GRAN 1               /* @note you must define it for a value */
 
 /* MCU Endian Configuration, default is Little Endian Order. */
-/* #define FDB_BIG_ENDIAN  */ 
+/* #define FDB_BIG_ENDIAN  */
 
 /* log print macro. default EF_PRINT macro is printf() */
 /* #define FDB_PRINT(...)              my_printf(__VA_ARGS__) */

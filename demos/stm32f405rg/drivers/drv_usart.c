@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2019, RT-Thread Development Team
+ * Copyright (c) 2006-2021, RT-Thread Development Team
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -251,7 +251,7 @@ static long stm32_gpio_configure(struct stm32_uart_config *config)
     {
         stm32_gpio_clk_enable(rx_port);
     }
-    
+
     /* rx pin initialize */
     GPIO_InitStruct.Pin = tx_pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;

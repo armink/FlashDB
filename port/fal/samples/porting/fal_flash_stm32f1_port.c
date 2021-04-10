@@ -77,7 +77,7 @@ static int write(long offset, const uint8_t *buf, size_t size)
     uint32_t addr = stm32_onchip_flash.addr + offset;
 
     __ALIGN_BEGIN uint32_t write_data __ALIGN_END;
-    __ALIGN_BEGIN uint32_t read_data  __ALIGN_END;  
+    __ALIGN_BEGIN uint32_t read_data  __ALIGN_END;
 
     if(addr%4 != 0)
         ef_err_port_cnt++;
@@ -94,11 +94,11 @@ static int write(long offset, const uint8_t *buf, size_t size)
         read_data = *(uint32_t *)addr;
         /* You can add your code under here. */
         if (read_data != write_data) {
-            HAL_FLASH_Lock(); 
+            HAL_FLASH_Lock();
             return -1;
         }
         else{
-			//FLash操作可能非常耗时，如果有看门狗需要喂狗，以下代码由用户实现
+            //FLash操作可能非常耗时，如果有看门狗需要喂狗，以下代码由用户实现
            feed_dog();
         }
     }
@@ -126,20 +126,20 @@ static int erase(long offset, size_t size)
     EraseInitStruct.TypeErase   = FLASH_TYPEERASE_PAGES;
     EraseInitStruct.NbPages     = 1;  //一次擦出一个扇区, 以执行一次喂狗，防止超时
     HAL_FLASH_Unlock();
-    
+
     for (i = 0; i < erase_pages; i++) {
         EraseInitStruct.PageAddress = addr + (FLASH_PAGE_SIZE * i);
         flash_status = HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError);
         if (flash_status != HAL_OK) {
-            HAL_FLASH_Lock(); 
+            HAL_FLASH_Lock();
             return -1;
         }
         else{
-			//FLash操作可能非常耗时，如果有看门狗需要喂狗，以下代码由用户实现
+            //FLash操作可能非常耗时，如果有看门狗需要喂狗，以下代码由用户实现
             feed_dog();
         }
     }
-    HAL_FLASH_Lock(); 
+    HAL_FLASH_Lock();
 
     return size;
 }
