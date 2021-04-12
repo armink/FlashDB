@@ -51,7 +51,7 @@ extern "C" {
 #ifndef FDB_PRINT
 #define FDB_PRINT(...)                 printf(__VA_ARGS__)
 #endif
-#define FDB_LOG_PREFIX1()              FDB_PRINT("[FlashDB]"FDB_LOG_TAG)
+#define FDB_LOG_PREFIX1()              FDB_PRINT("[FlashDB]" FDB_LOG_TAG)
 #define FDB_LOG_PREFIX2()              FDB_PRINT(" ")
 #define FDB_LOG_PREFIX()               FDB_LOG_PREFIX1();FDB_LOG_PREFIX2()
 #ifdef FDB_DEBUG_ENABLE
