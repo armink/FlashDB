@@ -710,6 +710,11 @@ void fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg)
         db->parent.max_size = *(uint32_t *)arg;
 #endif
         break;
+    case FDB_TSDB_CTRL_SET_NOT_FORMAT:
+        /* this change MUST before database initialization */
+        FDB_ASSERT(db->parent.init_ok == false);
+        db->parent.not_formatable = *(bool *)arg;
+        break;
     }
 }
 
@@ -752,7 +757,12 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *part_name, 
     sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &check_sec_arg, NULL, check_sec_hdr_cb, true);
     /* format all sector when check failed */
     if (check_sec_arg.check_failed) {
-        tsl_format_all(db);
+        if (db->parent.not_formatable) {
+            result = FDB_READ_ERR;
+            goto __exit;
+        } else {
+            tsl_format_all(db);
+        }
     } else {
         uint32_t latest_addr;
         if (check_sec_arg.empty_num > 0) {
@@ -793,6 +803,20 @@ __exit:
     _fdb_init_finish((fdb_db_t)db, result);
 
     return result;
+}
+
+/**
+ * The time series database deinitialization.
+ *
+ * @param db database object
+ *
+ * @return result
+ */
+fdb_err_t fdb_tsdb_deinit(fdb_tsdb_t db)
+{
+    _fdb_deinit((fdb_db_t) db);
+
+    return FDB_NO_ERR;
 }
 
 #endif /* defined(FDB_USING_TSDB) */

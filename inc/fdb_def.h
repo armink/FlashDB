@@ -69,22 +69,24 @@ if (!(EXPR))                                                                  \
     while (1);                                                                \
 }
 
-#define FDB_KVDB_CTRL_SET_SEC_SIZE     0x0             /**< set sector size control command */
-#define FDB_KVDB_CTRL_GET_SEC_SIZE     0x1             /**< get sector size control command */
-#define FDB_KVDB_CTRL_SET_LOCK         0x2             /**< set lock function control command */
-#define FDB_KVDB_CTRL_SET_UNLOCK       0x3             /**< set unlock function control command */
-#define FDB_KVDB_CTRL_SET_FILE_MODE    0x9             /**< set file mode control command */
-#define FDB_KVDB_CTRL_SET_MAX_SIZE     0xA             /**< set database max size in file mode control command */
+#define FDB_KVDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command */
+#define FDB_KVDB_CTRL_GET_SEC_SIZE     0x01             /**< get sector size control command */
+#define FDB_KVDB_CTRL_SET_LOCK         0x02             /**< set lock function control command */
+#define FDB_KVDB_CTRL_SET_UNLOCK       0x03             /**< set unlock function control command */
+#define FDB_KVDB_CTRL_SET_FILE_MODE    0x09             /**< set file mode control command */
+#define FDB_KVDB_CTRL_SET_MAX_SIZE     0x0A             /**< set database max size in file mode control command */
+#define FDB_KVDB_CTRL_SET_NOT_FORMAT   0x0B             /**< set database NOT format mode control command */
 
-#define FDB_TSDB_CTRL_SET_SEC_SIZE     0x0             /**< set sector size control command */
-#define FDB_TSDB_CTRL_GET_SEC_SIZE     0x1             /**< get sector size control command */
-#define FDB_TSDB_CTRL_SET_LOCK         0x2             /**< set lock function control command */
-#define FDB_TSDB_CTRL_SET_UNLOCK       0x3             /**< set unlock function control command */
-#define FDB_TSDB_CTRL_SET_ROLLOVER     0x4             /**< set rollover control command */
-#define FDB_TSDB_CTRL_GET_ROLLOVER     0x5             /**< get rollover control command */
-#define FDB_TSDB_CTRL_GET_LAST_TIME    0x6             /**< get last save time control command */
-#define FDB_TSDB_CTRL_SET_FILE_MODE    0x9             /**< set file mode control command */
-#define FDB_TSDB_CTRL_SET_MAX_SIZE     0xA             /**< set database max size in file mode control command */
+#define FDB_TSDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command */
+#define FDB_TSDB_CTRL_GET_SEC_SIZE     0x01             /**< get sector size control command */
+#define FDB_TSDB_CTRL_SET_LOCK         0x02             /**< set lock function control command */
+#define FDB_TSDB_CTRL_SET_UNLOCK       0x03             /**< set unlock function control command */
+#define FDB_TSDB_CTRL_SET_ROLLOVER     0x04             /**< set rollover control command */
+#define FDB_TSDB_CTRL_GET_ROLLOVER     0x05             /**< get rollover control command */
+#define FDB_TSDB_CTRL_GET_LAST_TIME    0x06             /**< get last save time control command */
+#define FDB_TSDB_CTRL_SET_FILE_MODE    0x09             /**< set file mode control command */
+#define FDB_TSDB_CTRL_SET_MAX_SIZE     0x0A             /**< set database max size in file mode control command */
+#define FDB_TSDB_CTRL_SET_NOT_FORMAT   0x0B             /**< set database NOT formatable mode control command */
 
 typedef time_t fdb_time_t;
 #ifdef FDB_USING_TIMESTAMP_64BIT
@@ -262,6 +264,7 @@ struct fdb_db {
     uint32_t max_size;                           /**< database max size. It's a multiple of section size */
     bool init_ok;                                /**< initialized successfully */
     bool file_mode;                              /**< is file mode, default is false */
+    bool not_formatable;                         /**< is can NOT be formated mode, default is false */
 #ifdef FDB_USING_FILE_MODE
 #if defined(FDB_USING_FILE_POSIX_MODE)
     int cur_file;                                /**< current file object */
