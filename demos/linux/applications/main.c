@@ -4,14 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #include <stdio.h>
-#include <board.h>
+#include <pthread.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <flashdb.h>
-#include <stm32f1xx_hal.h>
 
 #define FDB_LOG_TAG "[main]"
 
+static pthread_mutex_t kv_locker, ts_locker;
 static uint32_t boot_count = 0;
 static time_t boot_time[10] = {0, 1, 2, 3};
 /* default KV nodes */
@@ -35,25 +36,24 @@ extern void tsdb_sample(fdb_tsdb_t tsdb);
 
 static void lock(fdb_db_t db)
 {
-    __disable_irq();
+    pthread_mutex_lock((pthread_mutex_t *)db->user_data);
 }
 
 static void unlock(fdb_db_t db)
 {
-    __enable_irq();
+    pthread_mutex_unlock((pthread_mutex_t *)db->user_data);
 }
 
 static fdb_time_t get_time(void)
 {
-    /* Using the counts instead of timestamp.
-     * Please change this function to return RTC time.
-     */
-    return ++counts;
+    return time(NULL);
 }
 
 int main(void)
 {
     fdb_err_t result;
+    bool file_mode = true;
+    uint32_t sec_size = 4096, db_size = sec_size * 4;
 
 #ifdef FDB_USING_KVDB
     { /* KVDB Sample */
@@ -62,8 +62,16 @@ int main(void)
         default_kv.kvs = default_kv_table;
         default_kv.num = sizeof(default_kv_table) / sizeof(default_kv_table[0]);
         /* set the lock and unlock function if you want */
+        pthread_mutex_init(&kv_locker, NULL);
         fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_LOCK, (void *)lock);
         fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_UNLOCK, (void *)unlock);
+        /* set the sector and database max size */
+        fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_SEC_SIZE, &sec_size);
+        fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_MAX_SIZE, &db_size);
+        /* enable file mode */
+        fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_FILE_MODE, &file_mode);
+        /* create database directory */
+        mkdir("fdb_kvdb1", 0777);
         /* Key-Value database initialization
          *
          *       &kvdb: database object
@@ -71,9 +79,9 @@ int main(void)
          * "fdb_kvdb1": The flash partition name base on FAL. Please make sure it's in FAL partition table.
          *              Please change to YOUR partition name.
          * &default_kv: The default KV nodes. It will auto add to KVDB when first initialize successfully.
-         *        NULL: The user data if you need, now is empty.
+         *  &kv_locker: The locker object.
          */
-        result = fdb_kvdb_init(&kvdb, "env", "fdb_kvdb1", &default_kv, NULL);
+        result = fdb_kvdb_init(&kvdb, "env", "fdb_kvdb1", &default_kv, &kv_locker);
 
         if (result != FDB_NO_ERR) {
             return -1;
@@ -91,8 +99,16 @@ int main(void)
 #ifdef FDB_USING_TSDB
     { /* TSDB Sample */
         /* set the lock and unlock function if you want */
+        pthread_mutex_init(&ts_locker, NULL);
         fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_SET_LOCK, (void *)lock);
         fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_SET_UNLOCK, (void *)unlock);
+        /* set the sector and database max size */
+        fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_SET_SEC_SIZE, &sec_size);
+        fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_SET_MAX_SIZE, &db_size);
+        /* enable file mode */
+        fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_SET_FILE_MODE, &file_mode);
+        /* create database directory */
+        mkdir("fdb_tsdb1", 0777);
         /* Time series database initialization
          *
          *       &tsdb: database object
@@ -101,9 +117,9 @@ int main(void)
          *              Please change to YOUR partition name.
          *    get_time: The get current timestamp function.
          *         128: maximum length of each log
-         *        NULL: The user data if you need, now is empty.
+         *   ts_locker: The locker object.
          */
-        result = fdb_tsdb_init(&tsdb, "log", "fdb_tsdb1", get_time, 128, NULL);
+        result = fdb_tsdb_init(&tsdb, "log", "fdb_tsdb1", get_time, 128, &ts_locker);
         /* read last saved time for simulated timestamp */
         fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_GET_LAST_TIME, &counts);
 
