@@ -1601,7 +1601,6 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
     size_t i;
 #endif
 
-    FDB_ASSERT(default_kv);
     /* must be aligned with write granularity */
     FDB_ASSERT((FDB_STR_KV_VALUE_MAX_SIZE * 8) % FDB_WRITE_GRAN == 0);
 
@@ -1612,7 +1611,13 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
 
     db->gc_request = false;
     db->in_recovery_check = false;
-    db->default_kvs = *default_kv;
+    if (default_kv) {
+        db->default_kvs = *default_kv;
+    }
+    else {
+        db->default_kvs.num = 0;
+        db->default_kvs.kvs = NULL;
+    }
     /* there is at least one empty sector for GC. */
     FDB_ASSERT((FDB_GC_EMPTY_SEC_THRESHOLD > 0 && FDB_GC_EMPTY_SEC_THRESHOLD < SECTOR_NUM))
 
