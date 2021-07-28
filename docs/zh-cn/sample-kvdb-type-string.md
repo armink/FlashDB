@@ -35,7 +35,7 @@ void kvdb_type_string_sample(fdb_kvdb_t kvdb)
     { /* CHANGE the KV value */
         char temp_data[10] = "38C";
 
-        /* change the "temp" KV's value to "38.1" */
+        /* change the "temp" KV's value to "38C" */
         fdb_kv_set(kvdb, "temp", temp_data);
         FDB_INFO("set 'temp' value to %s\n", temp_data);
     }
