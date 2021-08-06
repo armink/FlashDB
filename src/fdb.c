@@ -111,7 +111,7 @@ void _fdb_deinit(fdb_db_t db)
         }
 #else
         if (db->cur_file != 0) {
-            fclose(db->cur_file)
+            fclose(db->cur_file);
         }
 #endif /* FDB_USING_FILE_POSIX_MODE */
 #endif /* FDB_USING_FILE_MODE */
