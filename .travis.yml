@@ -19,8 +19,8 @@ install:
 
 stage: test
 script:
-  - "cp -rf src $TEST_BSP_ROOT/packages/FlashDB/src"
-  - "cp -rf tests $TEST_BSP_ROOT/packages/FlashDB/tests"
+  - "cp -rf src/* $TEST_BSP_ROOT/packages/FlashDB/src"
+  - "cp -rf tests/* $TEST_BSP_ROOT/packages/FlashDB/tests"
   - "cp -rf inc/fdb_def.h $TEST_BSP_ROOT/packages/FlashDB/inc/fdb_def.h"
   - "cp -rf inc/fdb_low_lvl.h $TEST_BSP_ROOT/packages/FlashDB/inc/fdb_low_lvl.h"
   - "cp -rf inc/flashdb.h $TEST_BSP_ROOT/packages/FlashDB/inc/flashdb.h"
