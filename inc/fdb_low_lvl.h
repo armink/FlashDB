@@ -48,10 +48,10 @@ uint32_t _fdb_continue_ff_addr(fdb_db_t db, uint32_t start, uint32_t end);
 fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *part_name, fdb_db_type type, void *user_data);
 void _fdb_init_finish(fdb_db_t db, fdb_err_t result);
 void _fdb_deinit(fdb_db_t db);
-fdb_err_t _fdb_write_status(fdb_db_t db, uint32_t addr, uint8_t status_table[], size_t status_num, size_t status_index);
+fdb_err_t _fdb_write_status(fdb_db_t db, uint32_t addr, uint8_t status_table[], size_t status_num, size_t status_index, bool sync);
 size_t _fdb_read_status(fdb_db_t db, uint32_t addr, uint8_t status_table[], size_t total_num);
 fdb_err_t _fdb_flash_read(fdb_db_t db, uint32_t addr, void *buf, size_t size);
 fdb_err_t _fdb_flash_erase(fdb_db_t db, uint32_t addr, size_t size);
-fdb_err_t _fdb_flash_write(fdb_db_t db, uint32_t addr, const void *buf, size_t size);
+fdb_err_t _fdb_flash_write(fdb_db_t db, uint32_t addr, const void *buf, size_t size, bool sync);
 
 #endif /* _FDB_LOW_LVL_H_ */
