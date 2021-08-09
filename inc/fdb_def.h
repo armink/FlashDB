@@ -88,10 +88,12 @@ if (!(EXPR))                                                                  \
 #define FDB_TSDB_CTRL_SET_MAX_SIZE     0x0A             /**< set database max size in file mode control command */
 #define FDB_TSDB_CTRL_SET_NOT_FORMAT   0x0B             /**< set database NOT formatable mode control command */
 
-typedef time_t fdb_time_t;
 #ifdef FDB_USING_TIMESTAMP_64BIT
-typedef int64_t fdb_time_t;
-#endif
+    typedef int64_t fdb_time_t;
+#else
+    typedef int32_t fdb_time_t;
+#endif /* FDB_USING_TIMESTAMP_64BIT */
+
 typedef fdb_time_t (*fdb_get_time)(void);
 
 struct fdb_default_kv_node {
