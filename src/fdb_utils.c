@@ -102,7 +102,7 @@ size_t _fdb_set_status(uint8_t status_table[], size_t status_num, size_t status_
     if (status_index > 0) {
 #if (FDB_WRITE_GRAN == 1)
         byte_index = (status_index - 1) / 8;
-        status_table[byte_index] &= ~(0x80 >> ((status_index - 1) % 8));
+        status_table[byte_index] &= (0x00ff >> (status_index % 8));
 #else
         byte_index = (status_index - 1) * (FDB_WRITE_GRAN / 8);
         status_table[byte_index] = 0x00;
