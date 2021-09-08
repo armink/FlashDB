@@ -39,3 +39,6 @@ The print function macro defines the configuration. When it is not configured by
 ## FDB_DEBUG_ENABLE
 
 Enable debugging information output. When this configuration is closed, the system will not output logs for debugging.
+
+## FDB_KV_CACHE_HASHINDEX_ENHANCEMENT
+Enable the enhancement of the KV cache, it will take more RAM but improve the search speed, it will create a hash-base index in memory. It will take 4-bytes for a key-value entry.

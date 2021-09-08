@@ -37,6 +37,10 @@ extern "C" {
 
 #if (FDB_KV_CACHE_TABLE_SIZE > 0) && (FDB_SECTOR_CACHE_TABLE_SIZE > 0)
 #define FDB_KV_USING_CACHE
+/* the KV cache use hashmap enhancement, it will take more RAM but improve the search speed */
+//#define FDB_KV_CACHE_HASH_ENHANCEMENT
+#else
+#undef FDB_KV_CACHE_HASH_ENHANCEMENT
 #endif
 
 #if defined(FDB_USING_FILE_LIBC_MODE) || defined(FDB_USING_FILE_POSIX_MODE)
@@ -76,6 +80,7 @@ if (!(EXPR))                                                                  \
 #define FDB_KVDB_CTRL_SET_FILE_MODE    0x09             /**< set file mode control command */
 #define FDB_KVDB_CTRL_SET_MAX_SIZE     0x0A             /**< set database max size in file mode control command */
 #define FDB_KVDB_CTRL_SET_NOT_FORMAT   0x0B             /**< set database NOT format mode control command */
+#define FDB_KVDB_CTRL_SET_HASH_OPS     0x0C             /**< set hash operations if hash enhancement is enabled */
 
 #define FDB_TSDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command */
 #define FDB_TSDB_CTRL_GET_SEC_SIZE     0x01             /**< get sector size control command */
@@ -281,6 +286,21 @@ struct fdb_db {
     void *user_data;
 };
 
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+/* memory ops */
+struct fdb_cache_hash_enhancement_ops
+{
+    /* init call when need init, please return the size of memory that allocated */
+    int (*init)(uint32_t default_value);
+    /* read the offset, return a 4-bytes data */
+    uint32_t (*read)(long offset);
+    /* write a 4-bytes data */
+    int (*write)(long offset, const uint32_t addr);
+};
+
+typedef struct fdb_cache_hash_enhancement_ops *fdb_cache_hash_enhancement_ops_t;
+#endif
+
 /* KVDB structure */
 struct fdb_kvdb {
     struct fdb_db parent;                        /**< inherit from fdb_db */
@@ -296,6 +316,12 @@ struct fdb_kvdb {
     struct kv_cache_node kv_cache_table[FDB_KV_CACHE_TABLE_SIZE];
     /* sector cache table, it caching the sector info which status is current using */
     struct sector_cache_node sector_cache_table[FDB_SECTOR_CACHE_TABLE_SIZE];
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    /* KV hash enhancement */
+    size_t kv_cache_enm_total_size;
+    size_t kv_cache_enm_size;
+    fdb_cache_hash_enhancement_ops_t kv_cache_enm_ops;
+#endif
 #endif /* FDB_KV_USING_CACHE */
 
 #ifdef FDB_KV_AUTO_UPDATE
