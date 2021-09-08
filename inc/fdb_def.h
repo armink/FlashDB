@@ -287,7 +287,11 @@ struct fdb_db {
 };
 
 #ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
-/* memory ops */
+/* memory ops,
+   In some complicated situations, the memory may use page-management, 
+   so the functions designed to switch pages before accessing,
+    or meet other prerequisites.
+ */
 struct fdb_cache_hash_enhancement_ops
 {
     /* init call when need init, please return the size of memory that allocated */
