@@ -12,15 +12,17 @@
 
 #define FDB_LOG_TAG "[main]"
 
+static struct fdb_cache_hash_enhancement_ops hash_ops;
+
 static pthread_mutex_t kv_locker, ts_locker;
 static uint32_t boot_count = 0;
 static time_t boot_time[10] = {0, 1, 2, 3};
 /* default KV nodes */
 static struct fdb_default_kv_node default_kv_table[] = {
-        {"username", "armink", 0}, /* string KV */
-        {"password", "123456", 0}, /* string KV */
-        {"boot_count", &boot_count, sizeof(boot_count)}, /* int type KV */
-        {"boot_time", &boot_time, sizeof(boot_time)},    /* int array type KV */
+    {"username", "armink", 0},                       /* string KV */
+    {"password", "123456", 0},                       /* string KV */
+    {"boot_count", &boot_count, sizeof(boot_count)}, /* int type KV */
+    {"boot_time", &boot_time, sizeof(boot_time)},    /* int array type KV */
 };
 /* KVDB object */
 static struct fdb_kvdb kvdb = { 0 };
@@ -49,11 +51,38 @@ static fdb_time_t get_time(void)
     return time(NULL);
 }
 
+#include <stdlib.h>
+#include <string.h>
+static uint32_t *hash_memory;
+
+static int hash_init(uint32_t default_value)
+{
+    size_t size = 4096 * 4;
+    hash_memory = (uint32_t *)malloc(size);
+    memset(hash_memory, default_value, size);
+    return size;
+}
+
+static uint32_t hash_read(long offset)
+{
+    return hash_memory[offset];
+}
+
+static int hash_write(long offset, const uint32_t addr)
+{
+    hash_memory[offset] = addr;
+    return 1;
+}
+
 int main(void)
 {
     fdb_err_t result;
     bool file_mode = true;
     uint32_t sec_size = 4096, db_size = sec_size * 4;
+
+    hash_ops.init = hash_init;
+    hash_ops.read = hash_read;
+    hash_ops.write = hash_write;
 
 #ifdef FDB_USING_KVDB
     { /* KVDB Sample */
@@ -72,6 +101,8 @@ int main(void)
         fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_FILE_MODE, &file_mode);
         /* create database directory */
         mkdir("fdb_kvdb1", 0777);
+
+        fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_HASH_OPS, &hash_ops);
         /* Key-Value database initialization
          *
          *       &kvdb: database object
