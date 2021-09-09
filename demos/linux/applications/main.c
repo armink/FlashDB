@@ -9,10 +9,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <flashdb.h>
+#include <time.h>
 
 #define FDB_LOG_TAG "[main]"
 
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
 static struct fdb_cache_hash_enhancement_ops hash_ops;
+#endif
 
 static pthread_mutex_t kv_locker, ts_locker;
 static uint32_t boot_count = 0;
@@ -34,6 +37,7 @@ static int counts = 0;
 extern void kvdb_basic_sample(fdb_kvdb_t kvdb);
 extern void kvdb_type_string_sample(fdb_kvdb_t kvdb);
 extern void kvdb_type_blob_sample(fdb_kvdb_t kvdb);
+extern void kvdb_bench_sample(fdb_kvdb_t kvdb);
 extern void tsdb_sample(fdb_tsdb_t tsdb);
 
 static void lock(fdb_db_t db)
@@ -51,38 +55,51 @@ static fdb_time_t get_time(void)
     return time(NULL);
 }
 
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
 #include <stdlib.h>
 #include <string.h>
 static uint32_t *hash_memory;
 
+/* return the size of the memory block in byte, 
+   the memory block is composed of uint32_t
+   The block size MUST BE a multiple of four.*/
 static int hash_init(uint32_t default_value)
 {
-    size_t size = 4096 * 4;
+    size_t elements_cnt = 4096; 
+    size_t size = 4 * elements_cnt;
+    
     hash_memory = (uint32_t *)malloc(size);
     memset(hash_memory, default_value, size);
+
     return size;
 }
 
+/* return an element of the memory block */
 static uint32_t hash_read(long offset)
 {
     return hash_memory[offset];
 }
 
+/* write an element to the memory block */
 static int hash_write(long offset, const uint32_t addr)
 {
     hash_memory[offset] = addr;
     return 1;
 }
+#endif
+
 
 int main(void)
 {
     fdb_err_t result;
     bool file_mode = true;
-    uint32_t sec_size = 4096, db_size = sec_size * 4;
+    uint32_t sec_size = 4096, db_size = sec_size * 1024;
 
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
     hash_ops.init = hash_init;
     hash_ops.read = hash_read;
     hash_ops.write = hash_write;
+#endif
 
 #ifdef FDB_USING_KVDB
     { /* KVDB Sample */
@@ -101,8 +118,9 @@ int main(void)
         fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_FILE_MODE, &file_mode);
         /* create database directory */
         mkdir("fdb_kvdb1", 0777);
-
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
         fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_HASH_OPS, &hash_ops);
+#endif
         /* Key-Value database initialization
          *
          *       &kvdb: database object
@@ -124,6 +142,13 @@ int main(void)
         kvdb_type_string_sample(&kvdb);
         /* run blob KV samples */
         kvdb_type_blob_sample(&kvdb);
+
+        /* run bench test */
+        {
+            clock_t stick =  clock();
+            kvdb_bench_sample(&kvdb);
+            FDB_INFO("\nBench time: %d\n\n",clock() - stick);
+        }
     }
 #endif /* FDB_USING_KVDB */
 
