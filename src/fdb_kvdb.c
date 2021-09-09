@@ -310,24 +310,6 @@ static int kv_hash_put(fdb_kvdb_t db, const char *const key,
   }
   return ret;
 }
-
-static bool hash_index_cb(fdb_kv_t kv, void *arg1, void *arg2)
-{
-    bool value_is_str = true, print_value = false;
-    size_t *using_size = arg1;
-    fdb_kvdb_t db = arg2;
-
-    if (kv->crc_is_ok) {
-        /* calculate the total using flash size */
-        *using_size += kv->len;
-        /* check KV */
-        if (kv->status == FDB_KV_WRITE) {
-            kv_hash_put(db, kv->name, kv->name_len,kv->addr.start);
-        }
-    }
-
-    return false;
-}
 #endif
 
 static void update_kv_cache(fdb_kvdb_t db, const char *name, size_t name_len, uint32_t addr)
@@ -1401,29 +1383,6 @@ static fdb_err_t set_kv(fdb_kvdb_t db, const char *key, const void *value_buf, s
     return result;
 }
 
-static void kv_update_hash_index(fdb_kvdb_t db)
-{
-    struct fdb_kv kv;
-    size_t using_size = 0;
-
-    if (!db_init_ok(db)) {
-        FDB_INFO("Error: KV (%s) isn't initialize OK.\n", db_name(db));
-        return;
-    }
-
-    /* lock the KV cache */
-    db_lock(db);
-
-    kv_iterator(db, &kv, &using_size, db, hash_index_cb);
-
-    FDB_PRINT("\nmode: next generation\n");
-    FDB_PRINT("size: %u/%u bytes.\n", (uint32_t)using_size + ((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE),
-            db_max_size(db) - db_sec_size(db) * FDB_GC_EMPTY_SEC_THRESHOLD);
-
-    /* unlock the KV cache */
-    db_unlock(db);
-}
-
 /**
  * Set a blob KV. If it blob value is NULL, delete it.
  * If not find it in flash, then create it.
@@ -1866,10 +1825,6 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
 __exit:
 
     _fdb_init_finish((fdb_db_t)db, result);
-
-#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
-    kv_update_hash_index(db);
-#endif
 
     return result;
 }
