@@ -301,7 +301,7 @@ static int kv_hash_put(fdb_kvdb_t db, const char *const key,
           break;
           case 2:
           /* update */
-          if (addr!= FDB_DATA_UNUSED) {
+          if (addr == FDB_DATA_UNUSED) {
             // delete
             db->kv_cache_enm_size--;
           }
