@@ -211,7 +211,7 @@ static int kv_hash_compare(fdb_kvdb_t db, uint32_t curr, const char *const key, 
 
 
 static int kv_hash_find(fdb_kvdb_t db, const char *const key, const size_t len, 
-                        uint32_t *const out_index)
+                        uint32_t *const out_index, bool build)
 {
     unsigned int start, curr;
     unsigned int i;
@@ -234,9 +234,13 @@ static int kv_hash_find(fdb_kvdb_t db, const char *const key, const size_t len,
             total_in_use++;
         }
 
-        if (in_use && kv_hash_compare(db, curr, key, len)) {
-            *out_index = curr;
-            return 2;
+        if (!build)
+        {
+            /* ignore update when build */
+            if (in_use && kv_hash_compare(db, curr, key, len)) {
+                *out_index = curr;
+                return 2;
+            }
         }
 
         curr = (curr + 1) % db->kv_cache_enm_total_size;
@@ -286,9 +290,9 @@ static bool kv_hash_get(fdb_kvdb_t db, const char *name, size_t name_len, uint32
 }
 
 static int kv_hash_put(fdb_kvdb_t db, const char *const key,
-                const unsigned len, uint32_t addr) {
+                       const unsigned len, uint32_t addr, bool build) {
   uint32_t index;
-  int ret = kv_hash_find(db, key, len, &index);
+  int ret = kv_hash_find(db, key, len, &index, build);
   /* Find a place to put our value. */
   
   if(ret) {
@@ -312,10 +316,13 @@ static int kv_hash_put(fdb_kvdb_t db, const char *const key,
 }
 #endif
 
-static void update_kv_cache(fdb_kvdb_t db, const char *name, size_t name_len, uint32_t addr)
+#define _UNUSED_PARAM(x)
+#define update_kv_cache(db, name, name_len, addr) update_kv_cache_impl(db, name, name_len, addr, false)
+
+static void update_kv_cache_impl(fdb_kvdb_t db, const char *name, size_t name_len, uint32_t addr, bool build_index)
 {
 #ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
-    if (kv_hash_put(db, name, name_len, addr)) {
+    if (kv_hash_put(db, name, name_len, addr, build_index)) {
         return;
     }
 
@@ -323,6 +330,8 @@ static void update_kv_cache(fdb_kvdb_t db, const char *name, size_t name_len, ui
 #endif
     size_t i, empty_index = FDB_KV_CACHE_TABLE_SIZE, min_activity_index = FDB_KV_CACHE_TABLE_SIZE;
     uint16_t name_crc = (uint16_t) (fdb_calc_crc32(0, name, name_len) >> 16), min_activity = 0xFFFF;
+
+    _UNUSED_PARAM(build);
 
     for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
         if (addr != FDB_DATA_UNUSED) {
@@ -1642,7 +1651,7 @@ static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
         return true;
     } else if (kv->crc_is_ok && kv->status == FDB_KV_WRITE) {
         /* update the cache when first load */
-        update_kv_cache(db, kv->name, kv->name_len, kv->addr.start);
+        update_kv_cache_impl(db, kv->name, kv->name_len, kv->addr.start, true);
     }
 
     return false;
