@@ -322,6 +322,8 @@ struct fdb_kvdb {
     struct sector_cache_node sector_cache_table[FDB_SECTOR_CACHE_TABLE_SIZE];
 #ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
     /* KV hash enhancement */
+    bool kv_cache_enm_collisions;
+    bool kv_cache_table_collisions;
     size_t kv_cache_enm_total_size;
     size_t kv_cache_enm_size;
     fdb_cache_hash_enhancement_ops_t kv_cache_enm_ops;

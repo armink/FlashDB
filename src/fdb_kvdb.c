@@ -171,6 +171,7 @@ static bool get_sector_from_cache(fdb_kvdb_t db, uint32_t sec_addr, uint32_t *em
 /* use hashmap implement */
 #define HASHMAP_MAX_CHAIN_LENGTH (8)
 
+#if 0
 static uint32_t kv_hash_int(
     fdb_kvdb_t db,
     const char *const keystring,
@@ -193,6 +194,37 @@ static uint32_t kv_hash_int(
 
     return key % db->kv_cache_enm_total_size;
 }
+
+#else
+
+/*
+ * 32 bit magic FNV-0 and FNV-1 prime
+ */
+#define FNV_32_PRIME ((uint32_t)0x01000193)
+
+static uint32_t kv_hash_int(
+    fdb_kvdb_t db,
+    const char *const keystring,
+    const size_t len)
+{
+    uint32_t hval = 0x811c9dc5;
+    unsigned char *bp = (unsigned char *)keystring;	/* start of buffer */
+    unsigned char *be = bp + len;		/* beyond end of buffer */
+
+    /*
+     * FNV-1 hash each octet in the buffer
+     */
+    while (bp < be) {
+	    hval *= FNV_32_PRIME;
+        /* xor the bottom with the current octet */
+        hval ^= (uint32_t)*bp++;
+    }
+
+    /* return our new hash value */
+    return hval % db->kv_cache_enm_total_size;
+}
+
+#endif
 
 static int kv_hash_compare(fdb_kvdb_t db, uint32_t curr, const char *const key, const unsigned len)
 {
@@ -219,6 +251,8 @@ static int kv_hash_find(fdb_kvdb_t db, const char *const key, const size_t len,
 
     /* If full, return immediately */
     if (db->kv_cache_enm_size >= db->kv_cache_enm_total_size) {
+        /* collisions ? */
+        db->kv_cache_enm_collisions = true;
         return 0;
     }
 
@@ -261,6 +295,8 @@ static int kv_hash_find(fdb_kvdb_t db, const char *const key, const size_t len,
         }
     }
 
+    /* collisions ? */
+    db->kv_cache_enm_collisions = true;
     return 0;
 }
 
@@ -368,6 +404,11 @@ static void update_kv_cache_impl(fdb_kvdb_t db, const char *name, size_t name_le
         db->kv_cache_table[min_activity_index].active = 0;
     }
 #ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    }
+
+    if(!build_index) {
+        /* collisions */
+        db->kv_cache_table_collisions = true;
     }
 #endif
 }
@@ -713,7 +754,13 @@ static bool find_kv(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
     }
 #endif /* FDB_KV_USING_CACHE */
 
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    if (db->kv_cache_enm_collisions && db->kv_cache_enm_total_size) {
+#endif
     find_ok = find_kv_no_cache(db, key, kv);
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    }
+#endif
 
 #ifdef FDB_KV_USING_CACHE
     if (find_ok) {
@@ -1812,6 +1859,8 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
 #ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
     {
         size_t size = 0;
+        db->kv_cache_enm_collisions = false;
+        db->kv_cache_table_collisions = false;
         db->kv_cache_enm_size = 0;
         db->kv_cache_enm_total_size = 0;
 
