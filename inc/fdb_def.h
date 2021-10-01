@@ -127,7 +127,7 @@ enum fdb_kv_status {
     FDB_KV_PRE_DELETE,
     FDB_KV_DELETED,
     FDB_KV_ERR_HDR,
-    FDB_KV_STATUS_NUM,
+#define FDB_KV_STATUS_NUM                        6
 };
 typedef enum fdb_kv_status fdb_kv_status_t;
 
@@ -138,7 +138,7 @@ enum fdb_tsl_status {
     FDB_TSL_USER_STATUS1,
     FDB_TSL_DELETED,
     FDB_TSL_USER_STATUS2,
-    FDB_TSL_STATUS_NUM,
+#define FDB_TSL_STATUS_NUM                       6
 };
 typedef enum fdb_tsl_status fdb_tsl_status_t;
 
@@ -191,7 +191,7 @@ enum fdb_sector_store_status {
     FDB_SECTOR_STORE_EMPTY,
     FDB_SECTOR_STORE_USING,
     FDB_SECTOR_STORE_FULL,
-    FDB_SECTOR_STORE_STATUS_NUM,
+#define FDB_SECTOR_STORE_STATUS_NUM              4
 };
 typedef enum fdb_sector_store_status fdb_sector_store_status_t;
 
@@ -201,7 +201,7 @@ enum fdb_sector_dirty_status {
     FDB_SECTOR_DIRTY_FALSE,
     FDB_SECTOR_DIRTY_TRUE,
     FDB_SECTOR_DIRTY_GC,
-    FDB_SECTOR_DIRTY_STATUS_NUM,
+#define FDB_SECTOR_DIRTY_STATUS_NUM              4
 };
 typedef enum fdb_sector_dirty_status fdb_sector_dirty_status_t;
 
