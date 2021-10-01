@@ -25,11 +25,15 @@
 
 /* Using file storage mode by POSIX file API, like open/read/write/close */
 #define FDB_USING_FILE_POSIX_MODE
+//#define FDB_USING_FILE_LIBC_MODE
 
 /* log print macro. default EF_PRINT macro is printf() */
 /* #define FDB_PRINT(...)              my_printf(__VA_ARGS__) */
 
 /* print debug information */
 #define FDB_DEBUG_ENABLE
+
+/* enable hash enhancement, open it can speed up searhing */
+//#define FDB_KV_CACHE_HASH_ENHANCEMENT
 
 #endif /* _FDB_CFG_H_ */

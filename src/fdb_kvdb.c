@@ -167,10 +167,207 @@ static bool get_sector_from_cache(fdb_kvdb_t db, uint32_t sec_addr, uint32_t *em
     return false;
 }
 
-static void update_kv_cache(fdb_kvdb_t db, const char *name, size_t name_len, uint32_t addr)
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+/* use hashmap implement */
+#define HASHMAP_MAX_CHAIN_LENGTH (8)
+
+#if 0
+static uint32_t kv_hash_int(
+    fdb_kvdb_t db,
+    const char *const keystring,
+    const size_t len)
 {
+    uint32_t key = fdb_calc_crc32(0, keystring, len);
+
+    /* Robert Jenkins' 32 bit Mix Function */
+    key += (key << 12);
+    key ^= (key >> 22);
+    key += (key << 4);
+    key ^= (key >> 9);
+    key += (key << 10);
+    key ^= (key >> 2);
+    key += (key << 7);
+    key ^= (key >> 12);
+
+    /* Knuth's Multiplicative Method */
+    key = (key >> 3) * 2654435761;
+
+    return key % db->kv_cache_enm_total_size;
+}
+
+#else
+
+/*
+ * 32 bit magic FNV-0 and FNV-1 prime
+ */
+#define FNV_32_PRIME ((uint32_t)0x01000193)
+
+static uint32_t kv_hash_int(
+    fdb_kvdb_t db,
+    const char *const keystring,
+    const size_t len)
+{
+    uint32_t hval = 0x811c9dc5;
+    unsigned char *bp = (unsigned char *)keystring;	/* start of buffer */
+    unsigned char *be = bp + len;		/* beyond end of buffer */
+
+    /*
+     * FNV-1 hash each octet in the buffer
+     */
+    while (bp < be) {
+	    hval *= FNV_32_PRIME;
+        /* xor the bottom with the current octet */
+        hval ^= (uint32_t)*bp++;
+    }
+
+    /* return our new hash value */
+    return hval % db->kv_cache_enm_total_size;
+}
+
+#endif
+
+static int kv_hash_compare(fdb_kvdb_t db, uint32_t curr, const char *const key, const unsigned len)
+{
+    char saved_name[FDB_KV_NAME_MAX];
+    uint32_t addr;
+
+    addr = db->kv_cache_enm_ops->read(curr);
+
+    /* read the KV name in flash */
+    _fdb_flash_read((fdb_db_t)db, addr + KV_HDR_DATA_SIZE, (uint32_t *)saved_name, FDB_KV_NAME_MAX);
+    if (!strncmp(key, saved_name, len)) {
+        return true;
+    }
+    return false;
+}
+
+
+static int kv_hash_find(fdb_kvdb_t db, const char *const key, const size_t len, 
+                        uint32_t *const out_index, bool build)
+{
+    unsigned int start, curr;
+    unsigned int i;
+    int total_in_use;
+
+    /* If full, return immediately */
+    if (db->kv_cache_enm_size >= db->kv_cache_enm_total_size) {
+        /* collisions ? */
+        db->kv_cache_enm_collisions = true;
+        return 0;
+    }
+
+    /* Find the best index */
+    curr = start = kv_hash_int(db, key, len);
+
+    /* First linear probe to check if we've already insert the element */
+    total_in_use = 0;
+
+    for (i = 0; i < HASHMAP_MAX_CHAIN_LENGTH; i++) {
+        bool in_use = (db->kv_cache_enm_ops->read(curr) != FDB_DATA_UNUSED);
+        if (in_use) {
+            total_in_use++;
+        }
+
+        if (!build)
+        {
+            /* ignore update when build */
+            if (in_use && kv_hash_compare(db, curr, key, len)) {
+                *out_index = curr;
+                return 2;
+            }
+        }
+
+        curr = (curr + 1) % db->kv_cache_enm_total_size;
+    }
+
+    curr = start;
+
+    /* Second linear probe to actually insert our element (only if there was 
+    at least one empty entry) */
+    if (HASHMAP_MAX_CHAIN_LENGTH > total_in_use) {
+        for (i = 0; i < HASHMAP_MAX_CHAIN_LENGTH; i++) {
+            if (db->kv_cache_enm_ops->read(curr) == FDB_DATA_UNUSED) {
+                *out_index = curr;
+                return 1;
+            }
+
+            curr = (curr + 1) % db->kv_cache_enm_total_size;
+        }
+    }
+
+    /* collisions ? */
+    db->kv_cache_enm_collisions = true;
+    return 0;
+}
+
+
+static bool kv_hash_get(fdb_kvdb_t db, const char *name, size_t name_len, uint32_t *addr)
+{
+    size_t curr;
+    size_t i;
+
+    /* Find data location */
+    curr = kv_hash_int(db, name, name_len);
+
+    /* Linear probing, if necessary */
+    for (i = 0; i < HASHMAP_MAX_CHAIN_LENGTH; i++) {
+        if (db->kv_cache_enm_ops->read(curr) != FDB_DATA_UNUSED) {
+            /* read the KV name in flash */
+            if (kv_hash_compare(db, curr, name, name_len)) {
+                *addr = db->kv_cache_enm_ops->read(curr);
+                return true;
+            }
+        }
+
+        curr = (curr + 1) % db->kv_cache_enm_total_size;
+    }
+
+    return false;
+}
+
+static int kv_hash_put(fdb_kvdb_t db, const char *const key,
+                       const unsigned len, uint32_t addr, bool build) {
+  uint32_t index;
+  int ret = kv_hash_find(db, key, len, &index, build);
+  /* Find a place to put our value. */
+  
+  if(ret) {
+      db->kv_cache_enm_ops->write(index, addr);
+
+      switch(ret) {
+          case 1:
+          /* new insert */
+          db->kv_cache_enm_size++;
+          break;
+          case 2:
+          /* update */
+          if (addr == FDB_DATA_UNUSED) {
+            // delete
+            db->kv_cache_enm_size--;
+          }
+          break;
+      }
+  }
+  return ret;
+}
+#endif
+
+#define _UNUSED_PARAM(x)
+#define update_kv_cache(db, name, name_len, addr) update_kv_cache_impl(db, name, name_len, addr, false)
+
+static void update_kv_cache_impl(fdb_kvdb_t db, const char *name, size_t name_len, uint32_t addr, bool build_index)
+{
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    if (kv_hash_put(db, name, name_len, addr, build_index)) {
+        return;
+    }
+
+    {
+#endif
     size_t i, empty_index = FDB_KV_CACHE_TABLE_SIZE, min_activity_index = FDB_KV_CACHE_TABLE_SIZE;
     uint16_t name_crc = (uint16_t) (fdb_calc_crc32(0, name, name_len) >> 16), min_activity = 0xFFFF;
+
+    _UNUSED_PARAM(build);
 
     for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
         if (addr != FDB_DATA_UNUSED) {
@@ -206,6 +403,14 @@ static void update_kv_cache(fdb_kvdb_t db, const char *name, size_t name_len, ui
         db->kv_cache_table[min_activity_index].name_crc = name_crc;
         db->kv_cache_table[min_activity_index].active = 0;
     }
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    }
+
+    if(!build_index) {
+        /* collisions */
+        db->kv_cache_table_collisions = true;
+    }
+#endif
 }
 
 /*
@@ -213,6 +418,13 @@ static void update_kv_cache(fdb_kvdb_t db, const char *name, size_t name_len, ui
  */
 static bool get_kv_from_cache(fdb_kvdb_t db, const char *name, size_t name_len, uint32_t *addr)
 {
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    if (kv_hash_get(db, name, name_len, addr)) {
+        return true;
+    }
+    // new stack
+    {
+#endif
     size_t i;
     uint16_t name_crc = (uint16_t) (fdb_calc_crc32(0, name, name_len) >> 16);
 
@@ -232,7 +444,9 @@ static bool get_kv_from_cache(fdb_kvdb_t db, const char *name, size_t name_len, 
             }
         }
     }
-
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    }
+#endif
     return false;
 }
 #endif /* FDB_KV_USING_CACHE */
@@ -540,7 +754,13 @@ static bool find_kv(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
     }
 #endif /* FDB_KV_USING_CACHE */
 
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    if (db->kv_cache_enm_collisions && db->kv_cache_enm_total_size) {
+#endif
     find_ok = find_kv_no_cache(db, key, kv);
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    }
+#endif
 
 #ifdef FDB_KV_USING_CACHE
     if (find_ok) {
@@ -1478,7 +1698,7 @@ static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
         return true;
     } else if (kv->crc_is_ok && kv->status == FDB_KV_WRITE) {
         /* update the cache when first load */
-        update_kv_cache(db, kv->name, kv->name_len, kv->addr.start);
+        update_kv_cache_impl(db, kv->name, kv->name_len, kv->addr.start, true);
     }
 
     return false;
@@ -1578,6 +1798,13 @@ void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
         FDB_ASSERT(db->parent.init_ok == false);
         db->parent.not_formatable = *(bool *)arg;
         break;
+    case FDB_KVDB_CTRL_SET_HASH_OPS:
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+        /* this change MUST before database initialization */
+        FDB_ASSERT(db->parent.init_ok == false);
+        db->kv_cache_enm_ops = (fdb_cache_hash_enhancement_ops_t)arg;
+#endif
+        break;
     }
 }
 
@@ -1628,6 +1855,19 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
     for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
         db->kv_cache_table[i].addr = FDB_DATA_UNUSED;
     }
+
+#ifdef FDB_KV_CACHE_HASH_ENHANCEMENT
+    {
+        size_t size = 0;
+        db->kv_cache_enm_collisions = false;
+        db->kv_cache_table_collisions = false;
+        db->kv_cache_enm_size = 0;
+        db->kv_cache_enm_total_size = 0;
+
+        size = db->kv_cache_enm_ops->init(FDB_DATA_UNUSED);
+        db->kv_cache_enm_total_size = size >> 2;
+    }
+#endif
 #endif /* FDB_KV_USING_CACHE */
 
     FDB_DEBUG("KVDB size is %u bytes.\n", db_max_size(db));
