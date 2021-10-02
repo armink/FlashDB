@@ -601,7 +601,7 @@ static bool check_sec_hdr_cb(tsdb_sec_info_t sector, void *arg1, void *arg2)
     fdb_tsdb_t db = arg->db;
 
     if (!sector->check_ok) {
-        FDB_INFO("Sector (0x%08" PRIu32 ") header info is incorrect.\n", sector->addr);
+        FDB_INFO("Sector (0x%08" PRIX32 ") header info is incorrect.\n", sector->addr);
         (arg->check_failed) = true;
         return true;
     } else if (sector->status == FDB_SECTOR_STORE_USING) {
