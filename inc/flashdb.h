@@ -31,11 +31,11 @@ extern "C" {
 #endif
 
 /* FlashDB database API */
-fdb_err_t fdb_kvdb_init   (fdb_kvdb_t db, const char *name, const char *part_name, struct fdb_default_kv *default_kv,
+fdb_err_t fdb_kvdb_init   (fdb_kvdb_t db, const char *name, const char *path, struct fdb_default_kv *default_kv,
         void *user_data);
 void      fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg);
 fdb_err_t fdb_kvdb_deinit(fdb_kvdb_t db);
-fdb_err_t fdb_tsdb_init   (fdb_tsdb_t db, const char *name, const char *part_name, fdb_get_time get_time, size_t max_len,
+fdb_err_t fdb_tsdb_init   (fdb_tsdb_t db, const char *name, const char *path, fdb_get_time get_time, size_t max_len,
         void *user_data);
 void      fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg);
 fdb_err_t fdb_tsdb_deinit(fdb_tsdb_t db);

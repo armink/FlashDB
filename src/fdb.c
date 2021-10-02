@@ -21,11 +21,11 @@
 #error "Please defined the FDB_USING_FAL_MODE or FDB_USING_FILE_MODE macro"
 #endif
 
-fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *part_name, fdb_db_type type, void *user_data)
+fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *path, fdb_db_type type, void *user_data)
 {
     FDB_ASSERT(db);
     FDB_ASSERT(name);
-    FDB_ASSERT(part_name);
+    FDB_ASSERT(path);
 
     if (db->init_ok) {
         return FDB_NO_ERR;
@@ -45,8 +45,8 @@ fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *part_name, fdb
 #else
         db->cur_file = 0;
 #endif
-        db->storage.dir = part_name;
-        FDB_ASSERT(strlen(part_name) != 0)
+        db->storage.dir = path;
+        FDB_ASSERT(strlen(path) != 0)
 #endif
     } else {
 #ifdef FDB_USING_FAL_MODE
@@ -55,8 +55,8 @@ fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *part_name, fdb
         /* FAL (Flash Abstraction Layer) initialization */
         fal_init();
         /* check the flash partition */
-        if ((db->storage.part = fal_partition_find(part_name)) == NULL) {
-            FDB_INFO("Error: Partition (%s) not found.\n", part_name);
+        if ((db->storage.part = fal_partition_find(path)) == NULL) {
+            FDB_INFO("Error: Partition (%s) not found.\n", path);
             return FDB_PART_NOT_FOUND;
         }
 

@@ -452,7 +452,7 @@ static uint32_t get_next_sector_addr(fdb_kvdb_t db, kv_sec_info_t pre_sec)
     uint32_t next_addr;
 
     if (pre_sec->addr == FAILED_ADDR) {
-        /* the next sector is on the top of the partition */
+        /* the next sector is on the top of the database */
         return 0;
     } else {
         /* check KV sector combined */
@@ -1586,13 +1586,13 @@ void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
  *
  * @param db database object
  * @param name database name
- * @param part_name partition name
+ * @param path FAL mode: partition name, file mode: database saved directory path
  * @param default_kv the default KV set @see fdb_default_kv
  * @param user_data user data
  *
  * @return result
  */
-fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, struct fdb_default_kv *default_kv,
+fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struct fdb_default_kv *default_kv,
         void *user_data)
 {
     fdb_err_t result = FDB_NO_ERR;
@@ -1604,7 +1604,7 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, 
     /* must be aligned with write granularity */
     FDB_ASSERT((FDB_STR_KV_VALUE_MAX_SIZE * 8) % FDB_WRITE_GRAN == 0);
 
-    result = _fdb_init_ex((fdb_db_t)db, name, part_name, FDB_DB_TYPE_KV, user_data);
+    result = _fdb_init_ex((fdb_db_t)db, name, path, FDB_DB_TYPE_KV, user_data);
     if (result != FDB_NO_ERR) {
         goto __exit;
     }

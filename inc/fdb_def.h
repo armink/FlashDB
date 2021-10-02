@@ -69,24 +69,24 @@ if (!(EXPR))                                                                  \
     while (1);                                                                \
 }
 
-#define FDB_KVDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command */
+#define FDB_KVDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command, this change MUST before database initialization */
 #define FDB_KVDB_CTRL_GET_SEC_SIZE     0x01             /**< get sector size control command */
 #define FDB_KVDB_CTRL_SET_LOCK         0x02             /**< set lock function control command */
 #define FDB_KVDB_CTRL_SET_UNLOCK       0x03             /**< set unlock function control command */
-#define FDB_KVDB_CTRL_SET_FILE_MODE    0x09             /**< set file mode control command */
-#define FDB_KVDB_CTRL_SET_MAX_SIZE     0x0A             /**< set database max size in file mode control command */
-#define FDB_KVDB_CTRL_SET_NOT_FORMAT   0x0B             /**< set database NOT format mode control command */
+#define FDB_KVDB_CTRL_SET_FILE_MODE    0x09             /**< set file mode control command, this change MUST before database initialization */
+#define FDB_KVDB_CTRL_SET_MAX_SIZE     0x0A             /**< set database max size in file mode control command, this change MUST before database initialization */
+#define FDB_KVDB_CTRL_SET_NOT_FORMAT   0x0B             /**< set database NOT format mode control command, this change MUST before database initialization */
 
-#define FDB_TSDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command */
+#define FDB_TSDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command, this change MUST before database initialization */
 #define FDB_TSDB_CTRL_GET_SEC_SIZE     0x01             /**< get sector size control command */
 #define FDB_TSDB_CTRL_SET_LOCK         0x02             /**< set lock function control command */
 #define FDB_TSDB_CTRL_SET_UNLOCK       0x03             /**< set unlock function control command */
-#define FDB_TSDB_CTRL_SET_ROLLOVER     0x04             /**< set rollover control command */
+#define FDB_TSDB_CTRL_SET_ROLLOVER     0x04             /**< set rollover control command, this change MUST before database initialization */
 #define FDB_TSDB_CTRL_GET_ROLLOVER     0x05             /**< get rollover control command */
 #define FDB_TSDB_CTRL_GET_LAST_TIME    0x06             /**< get last save time control command */
-#define FDB_TSDB_CTRL_SET_FILE_MODE    0x09             /**< set file mode control command */
-#define FDB_TSDB_CTRL_SET_MAX_SIZE     0x0A             /**< set database max size in file mode control command */
-#define FDB_TSDB_CTRL_SET_NOT_FORMAT   0x0B             /**< set database NOT formatable mode control command */
+#define FDB_TSDB_CTRL_SET_FILE_MODE    0x09             /**< set file mode control command, this change MUST before database initialization */
+#define FDB_TSDB_CTRL_SET_MAX_SIZE     0x0A             /**< set database max size in file mode control command, this change MUST before database initialization */
+#define FDB_TSDB_CTRL_SET_NOT_FORMAT   0x0B             /**< set database NOT formatable mode control command, this change MUST before database initialization */
 
 #ifdef FDB_USING_TIMESTAMP_64BIT
     typedef int64_t fdb_time_t;

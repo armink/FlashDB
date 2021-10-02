@@ -131,7 +131,7 @@ static uint32_t get_next_sector_addr(fdb_tsdb_t db, tsdb_sec_info_t pre_sec, uin
         if (pre_sec->addr + db_sec_size(db) < db_max_size(db)) {
             return pre_sec->addr + db_sec_size(db);
         } else {
-            /* the next sector is on the top of the partition */
+            /* the next sector is on the top of the database */
             return 0;
         }
     } else {
@@ -726,14 +726,14 @@ void fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg)
  *
  * @param db database object
  * @param name database name
- * @param part_name partition name
+ * @param path FAL mode: partition name, file mode: database saved directory path
  * @param get_time get current time function
  * @param max_len maximum length of each log
  * @param user_data user data
  *
  * @return result
  */
-fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *part_name, fdb_get_time get_time, size_t max_len, void *user_data)
+fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_get_time get_time, size_t max_len, void *user_data)
 {
     fdb_err_t result = FDB_NO_ERR;
     struct tsdb_sec_info sector;
@@ -741,7 +741,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *part_name, 
 
     FDB_ASSERT(get_time);
 
-    result = _fdb_init_ex((fdb_db_t)db, name, part_name, FDB_DB_TYPE_TS, user_data);
+    result = _fdb_init_ex((fdb_db_t)db, name, path, FDB_DB_TYPE_TS, user_data);
     if (result != FDB_NO_ERR) {
         goto __exit;
     }
@@ -775,7 +775,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *part_name, 
         }
         /* db->cur_sec is the latest sector, and the next is the oldest sector */
         if (latest_addr + db_sec_size(db) >= db_max_size(db)) {
-            /* db->cur_sec is the the bottom of the partition */
+            /* db->cur_sec is the the bottom of the database */
             db->oldest_addr = 0;
         } else {
             db->oldest_addr = latest_addr + db_sec_size(db);
