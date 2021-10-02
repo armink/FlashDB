@@ -973,11 +973,16 @@ static uint32_t new_kv(fdb_kvdb_t db, kv_sec_info_t sector, size_t kv_size)
 
 __retry:
 
-    if ((empty_kv = alloc_kv(db, sector, kv_size)) == FAILED_ADDR && db->gc_request && !already_gc) {
-        FDB_DEBUG("Warning: Alloc an KV (size %u) failed when new KV. Now will GC then retry.\n", (uint32_t)kv_size);
-        gc_collect(db);
-        already_gc = true;
-        goto __retry;
+    if ((empty_kv = alloc_kv(db, sector, kv_size)) == FAILED_ADDR) {
+        if (db->gc_request && !already_gc) {
+            FDB_DEBUG("Warning: Alloc an KV (size %u) failed when new KV. Now will GC then retry.\n", (uint32_t)kv_size);
+            gc_collect(db);
+            already_gc = true;
+            goto __retry;
+        } else if (already_gc) {
+            FDB_DEBUG("Error: Alloc an KV (size %u) failed after GC. KV full.\n", kv_size);
+            db->gc_request = false;
+        }
     }
 
     return empty_kv;
