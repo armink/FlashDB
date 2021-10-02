@@ -31,13 +31,13 @@ Through the API of KVDB and TSDB, the blob object can be returned, and the stora
 
 ### Initialize KVDB
 
-`fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, struct fdb_default_kv *default_kv, void *user_data)`
+`fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struct fdb_default_kv *default_kv, void *user_data)`
 
 | Parameters | Description |
 | ---------- | -------------------------------------- ------------------ |
 | db | Database Objects |
 | name | Database name |
-| part_name | Which partition in the FAL partition table to use |
+| path | FAL mode: the partition name in the partition table, file mode: the path where the database is saved |
 | default_kv | The default KV collection, when the first initialization, the default KV will be written to the database |
 | user_data | User-defined data, NULL if not available |
 | Back | Error Code |
@@ -58,10 +58,13 @@ Through the command control word, the user can perform some control operations o
 The supported command control words are as follows:
 
 ```C
-#define FDB_KVDB_CTRL_SET_SEC_SIZE 0x0 /**< Set sector size */
-#define FDB_KVDB_CTRL_GET_SEC_SIZE 0x1 /**< Get sector size */
-#define FDB_KVDB_CTRL_SET_LOCK     0x2 /**< Set lock function */
-#define FDB_KVDB_CTRL_SET_UNLOCK   0x3 /**< Set unlock function */
+#define FDB_KVDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command, this change MUST before database initialization */
+#define FDB_KVDB_CTRL_GET_SEC_SIZE     0x01             /**< get sector size control command */
+#define FDB_KVDB_CTRL_SET_LOCK         0x02             /**< set lock function control command */
+#define FDB_KVDB_CTRL_SET_UNLOCK       0x03             /**< set unlock function control command */
+#define FDB_KVDB_CTRL_SET_FILE_MODE    0x09             /**< set file mode control command, this change MUST before database initialization */
+#define FDB_KVDB_CTRL_SET_MAX_SIZE     0x0A             /**< set database max size in file mode control command, this change MUST before database initialization */
+#define FDB_KVDB_CTRL_SET_NOT_FORMAT   0x0B             /**< set database NOT format mode control command, this change MUST before database initialization */
 ```
 
 #### Sector size and block size
@@ -70,12 +73,23 @@ The internal storage structure of FlashDB is composed of N sectors, and each for
 
 By default, KVDB will use 1 times the block size as the sector size, that is, 4096. At this time, the KVDB cannot store a KV longer than 4096. If you want to save, for example, a KV with a length of 10K, you can use the control function to set the sector size to 12K or larger.
 
+### Deinitialize KVDB
+
+`fdb_err_t fdb_kvdb_deinit(fdb_kvdb_t db)`
+
+| Parameters | Description      |
+| ---------- | ---------------- |
+| db         | Database Objects |
+
 ### Set KV
 
 This method can be used to increase and modify KV.
 
 - **Add**: When there is no KV with this name in KVDB, the new operation will be performed;
+
 - **Modify**: The KV name in the input parameter exists in the current KVDB, then the KV value is modified to the value in the input parameter;
+
+  > In the internal implementation of KVDB, modifying KV will delete the old KV first, and then add a new KV, so the remaining capacity of the database will become smaller after the modification
 
 Get the corresponding value by KV's name. Support two interfaces
 
@@ -166,6 +180,8 @@ Unlike the `fdb_kv_get_blob` API, this API does not execute the reading of value
 
 ### Delete KV
 
+> In the internal implementation of KVDB, deleting KV will not be completely removed from KVDB, but marked for deletion, so the remaining capacity of the database will not change after deletion.
+
 `fdb_err_t fdb_kv_del(fdb_kvdb_t db, const char *key)`
 
 | Parameters | Description |
@@ -176,7 +192,7 @@ Unlike the `fdb_kv_get_blob` API, this API does not execute the reading of value
 
 ### Reset KVDB
 
-Reset the KV in KVDB to the initial default value
+Reset the KV in KVDB to the **first initial** default value
 
 `fdb_err_t fdb_kv_set_default(fdb_kvdb_t db)`
 
@@ -226,13 +242,13 @@ Using this iterator API, all KVs in the entire KVDB can be traversed.
 
 ### Initialize TSDB
 
-`fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *part_name, fdb_get_time get_time, size_t max_len, void *user_data)`
+`fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_get_time get_time, size_t max_len, void *user_data)`
 
 | Parameters | Description |
 | --------- | ------------------------------- |
 | db | Database Objects |
 | name | Database name |
-| part_name | Which partition in the FAL partition table to use |
+| path | FAL mode: the partition name in the partition table, file mode: the path where the database is saved |
 | get_time | Function to get the current timestamp |
 | max_len | Maximum length of each TSL |
 | user_data | User-defined data, NULL if not available |
@@ -254,14 +270,25 @@ Through the command control word, the user can perform some control operations o
 The supported command control words are as follows:
 
 ```C
-#define FDB_TSDB_CTRL_SET_SEC_SIZE 0x0 /**< Set sector size */
-#define FDB_TSDB_CTRL_GET_SEC_SIZE 0x1 /**< Get sector size */
-#define FDB_TSDB_CTRL_SET_LOCK     0x2 /**< Set lock function */
-#define FDB_TSDB_CTRL_SET_UNLOCK   0x3 /**< Set unlock function */
-#define FDB_TSDB_CTRL_SET_ROLLOVER 0x4 /**< Set whether to roll writing, default roll. When setting non-rolling, if the database is full, no more writes can be appended */
-#define FDB_TSDB_CTRL_GET_ROLLOVER 0x5 /**< Get whether to scroll to write */
-#define FDB_TSDB_CTRL_GET_LAST_TIME 0x6 /**< Get the timestamp when TSL was last appended */
+#define FDB_TSDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command, this change MUST before database initialization */
+#define FDB_TSDB_CTRL_GET_SEC_SIZE     0x01             /**< get sector size control command */
+#define FDB_TSDB_CTRL_SET_LOCK         0x02             /**< set lock function control command */
+#define FDB_TSDB_CTRL_SET_UNLOCK       0x03             /**< set unlock function control command */
+#define FDB_TSDB_CTRL_SET_ROLLOVER     0x04             /**< set rollover control command, this change MUST before database initialization */
+#define FDB_TSDB_CTRL_GET_ROLLOVER     0x05             /**< get rollover control command */
+#define FDB_TSDB_CTRL_GET_LAST_TIME    0x06             /**< get last save time control command */
+#define FDB_TSDB_CTRL_SET_FILE_MODE    0x09             /**< set file mode control command, this change MUST before database initialization */
+#define FDB_TSDB_CTRL_SET_MAX_SIZE     0x0A             /**< set database max size in file mode control command, this change MUST before database initialization */
+#define FDB_TSDB_CTRL_SET_NOT_FORMAT   0x0B             /**< set database NOT formatable mode control command, this change MUST before database initialization */
 ```
+
+### Deinitialize TSDB
+
+`fdb_err_t fdb_tsdb_deinit(fdb_tsdb_t db)`
+
+| Parameters | Description      |
+| ---------- | ---------------- |
+| db         | Database Objects |
 
 ### Append TSL
 
@@ -317,6 +344,8 @@ According to the incoming time period, query the number of TSLs that meet the st
 | Back | Quantity |
 
 ### Set TSL status
+
+For TSL status, please refer to `enum fdb_tsl_status`. TSL status MUST be set in order. [click to view sample](sample-tsdb-basic.md)
 
 `fdb_err_t fdb_tsl_set_status(fdb_tsdb_t db, fdb_tsl_t tsl, fdb_tsl_status_t status)`
 

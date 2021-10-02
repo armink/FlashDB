@@ -31,13 +31,13 @@
 
 ### 初始化 KVDB
 
-`fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *part_name, struct fdb_default_kv *default_kv, void *user_data)`
+`fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struct fdb_default_kv *default_kv, void *user_data)`
 
 | 参数       | 描述                                                     |
 | ---------- | -------------------------------------------------------- |
 | db         | 数据库对象                                               |
 | name       | 数据库名称                                               |
-| part_name  | 使用 FAL 分区表中的哪一个分区                            |
+| path       | FAL 模式：分区表中的分区名，文件模式：数据库保存的路径   |
 | default_kv | 默认 KV 集合，第一次初始化时，将会把默认 KV 写入数据库中 |
 | user_data  | 用户自定义数据，没有时传入 NULL                          |
 | 返回       | 错误码                                                   |
@@ -58,10 +58,13 @@
 支持的命令控制字如下：
 
 ```C
-#define FDB_KVDB_CTRL_SET_SEC_SIZE     0x0             /**< 设置扇区大小 */
-#define FDB_KVDB_CTRL_GET_SEC_SIZE     0x1             /**< 获取扇区大小 */
-#define FDB_KVDB_CTRL_SET_LOCK         0x2             /**< 设置加锁函数 */
-#define FDB_KVDB_CTRL_SET_UNLOCK       0x3             /**< 设置解锁函数 */
+#define FDB_KVDB_CTRL_SET_SEC_SIZE     0x00             /**< 设置扇区大小，需要在数据库初始化前配置 */
+#define FDB_KVDB_CTRL_GET_SEC_SIZE     0x01             /**< 获取扇区大小 */
+#define FDB_KVDB_CTRL_SET_LOCK         0x02             /**< 设置加锁函数 */
+#define FDB_KVDB_CTRL_SET_UNLOCK       0x03             /**< 设置解锁函数 */
+#define FDB_KVDB_CTRL_SET_FILE_MODE    0x09             /**< 设置文件模式，需要在数据库初始化前配置 */
+#define FDB_KVDB_CTRL_SET_MAX_SIZE     0x0A             /**< 在文件模式下，设置数据库最大大小，需要在数据库初始化前配置 */
+#define FDB_KVDB_CTRL_SET_NOT_FORMAT   0x0B             /**< 设置初始化时不进行格式化，需要在数据库初始化前配置 */
 ```
 
 #### 扇区大小与块大小
@@ -70,12 +73,23 @@ FlashDB 内部存储结构由 N 个扇区组成，每次格式化时是以扇区
 
 默认 KVDB 会使用 1倍 的块大小作为扇区大小，即：4096。此时，该 KVDB 无法存入超过 4096 长度的 KV 。如果想要存入比如：10K 长度的 KV ，可以通过 control 函数，设置扇区大小为 12K，或者更大大小即可。
 
+### 反初始化 KVDB
+
+`fdb_err_t fdb_kvdb_deinit(fdb_kvdb_t db)`
+
+| 参数 | 描述       |
+| ---- | ---------- |
+| db   | 数据库对象 |
+
 ### 设置 KV
 
 使用此方法可以实现对 KV 的增加和修改功能。
 
 - **增加** ：当 KVDB 中不存在该名称的 KV 时，则会执行新增操作；
+
 - **修改** ：入参中的 KV 名称在当前 KVDB 中存在，则把该 KV 值修改为入参中的值；
+
+  > 在 KVDB 内部实现中，修改 KV 会先删除旧的 KV ，再增加新的 KV，所以修改后数据库剩余容量会变小
 
 通过 KV 的名字来获取其对应的值。支持两种接口
 
@@ -166,6 +180,8 @@ if (blob.saved.len > 0) {
 
 ### 删除 KV
 
+> 在 KVDB 内部实现中，删除 KV 并不会完全从 KVDB 中移除，而是标记为了删除状态，所以删除后数据库剩余容量不会有变化
+
 `fdb_err_t fdb_kv_del(fdb_kvdb_t db, const char *key)`
 
 | 参数 | 描述       |
@@ -176,7 +192,7 @@ if (blob.saved.len > 0) {
 
 ### 重置 KVDB
 
-将 KVDB 中的 KV 重置为初始时的默认值
+将 KVDB 中的 KV 重置为 **首次初始时** 的默认值
 
 `fdb_err_t fdb_kv_set_default(fdb_kvdb_t db)`
 
@@ -226,17 +242,17 @@ if (blob.saved.len > 0) {
 
 ### 初始化 TSDB
 
-`fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *part_name, fdb_get_time get_time, size_t max_len, void *user_data)`
+`fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_get_time get_time, size_t max_len, void *user_data)`
 
-| 参数      | 描述                            |
-| --------- | ------------------------------- |
-| db        | 数据库对象                      |
-| name      | 数据库名称                      |
-| part_name | 使用 FAL 分区表中的哪一个分区   |
-| get_time  | 获取当前时间戳的函数            |
-| max_len   | 每条 TSL 的最大长度             |
-| user_data | 用户自定义数据，没有时传入 NULL |
-| 返回      | 错误码                          |
+| 参数      | 描述                                                   |
+| --------- | ------------------------------------------------------ |
+| db        | 数据库对象                                             |
+| name      | 数据库名称                                             |
+| path      | FAL 模式：分区表中的分区名，文件模式：数据库保存的路径 |
+| get_time  | 获取当前时间戳的函数                                   |
+| max_len   | 每条 TSL 的最大长度                                    |
+| user_data | 用户自定义数据，没有时传入 NULL                        |
+| 返回      | 错误码                                                 |
 
 ### 控制 TSDB
 
@@ -254,14 +270,25 @@ if (blob.saved.len > 0) {
 支持的命令控制字如下：
 
 ```C
-#define FDB_TSDB_CTRL_SET_SEC_SIZE     0x0             /**< 设置扇区大小 */
-#define FDB_TSDB_CTRL_GET_SEC_SIZE     0x1             /**< 获取扇区大小 */
-#define FDB_TSDB_CTRL_SET_LOCK         0x2             /**< 设置加锁函数 */
-#define FDB_TSDB_CTRL_SET_UNLOCK       0x3             /**< 设置解锁函数 */
-#define FDB_TSDB_CTRL_SET_ROLLOVER     0x4             /**< 设置是否滚动写入，默认滚动。设置非滚动时，如果数据库写满，无法再追加写入 */
-#define FDB_TSDB_CTRL_GET_ROLLOVER     0x5             /**< 获取是否滚动写入 */
-#define FDB_TSDB_CTRL_GET_LAST_TIME    0x6             /**< 获取上次追加 TSL 时的时间戳 */
+#define FDB_TSDB_CTRL_SET_SEC_SIZE     0x00             /**< 设置扇区大小，需要在数据库初始化前配置 */
+#define FDB_TSDB_CTRL_GET_SEC_SIZE     0x01             /**< 获取扇区大小 */
+#define FDB_TSDB_CTRL_SET_LOCK         0x02             /**< 设置加锁函数 */
+#define FDB_TSDB_CTRL_SET_UNLOCK       0x03             /**< 设置解锁函数 */
+#define FDB_TSDB_CTRL_SET_ROLLOVER     0x04             /**< 设置是否滚动写入，默认滚动。设置非滚动时，如果数据库写满，无法再追加写入。需要在数据库初始化前配置 */
+#define FDB_TSDB_CTRL_GET_ROLLOVER     0x05             /**< 获取是否滚动写入 */
+#define FDB_TSDB_CTRL_GET_LAST_TIME    0x06             /**< 获取上次追加 TSL 时的时间戳  */
+#define FDB_TSDB_CTRL_SET_FILE_MODE    0x09             /**< 设置文件模式，需要在数据库初始化前配置，需要在数据库初始化前配置 */
+#define FDB_TSDB_CTRL_SET_MAX_SIZE     0x0A             /**< 在文件模式下，设置数据库最大大小，需要在数据库初始化前配置 */
+#define FDB_TSDB_CTRL_SET_NOT_FORMAT   0x0B             /**< 设置初始化时不进行格式化，需要在数据库初始化前配置 */
 ```
+
+### 反初始化 TSDB
+
+`fdb_err_t fdb_tsdb_deinit(fdb_tsdb_t db)`
+
+| 参数 | 描述       |
+| ---- | ---------- |
+| db   | 数据库对象 |
 
 ### 追加 TSL
 
@@ -317,6 +344,8 @@ if (blob.saved.len > 0) {
 | 返回   | 数量           |
 
 ### 设置 TSL 状态
+
+TSL 状态详见 `enum fdb_tsl_status` ，必须按照顺序设置 TSL 状态， [点击查看示例](zh-cn/sample-tsdb-basic.md)
 
 `fdb_err_t fdb_tsl_set_status(fdb_tsdb_t db, fdb_tsl_t tsl, fdb_tsl_status_t status)`
 
