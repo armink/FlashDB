@@ -305,6 +305,7 @@ static fdb_err_t update_sec_status(fdb_tsdb_t db, tsdb_sec_info_t sector, fdb_bl
         }
         /* change current sector to full */
         _FDB_WRITE_STATUS(db, cur_sec_addr, status, FDB_SECTOR_STORE_STATUS_NUM, FDB_SECTOR_STORE_FULL, true);
+        sector->status = FDB_SECTOR_STORE_FULL;
         /* calculate next sector address */
         if (sector->addr + db_sec_size(db) < db_max_size(db)) {
             new_sec_addr = sector->addr + db_sec_size(db);
@@ -326,6 +327,9 @@ static fdb_err_t update_sec_status(fdb_tsdb_t db, tsdb_sec_info_t sector, fdb_bl
             format_sector(db, new_sec_addr);
             read_sector_info(db, new_sec_addr, &db->cur_sec, false);
         }
+    } else if (sector->status == FDB_SECTOR_STORE_FULL) {
+        /* database full */
+        return FDB_SAVED_FULL;
     }
 
     if (sector->status == FDB_SECTOR_STORE_EMPTY) {
@@ -772,6 +776,8 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
             latest_addr = check_sec_arg.empty_addr;
         } else {
             latest_addr = db->cur_sec.addr;
+            /* There is no empty sector. */
+            latest_addr = db->cur_sec.addr = db_max_size(db) - db_sec_size(db);
         }
         /* db->cur_sec is the latest sector, and the next is the oldest sector */
         if (latest_addr + db_sec_size(db) >= db_max_size(db)) {
