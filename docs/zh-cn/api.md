@@ -274,7 +274,7 @@ if (blob.saved.len > 0) {
 #define FDB_TSDB_CTRL_GET_SEC_SIZE     0x01             /**< 获取扇区大小 */
 #define FDB_TSDB_CTRL_SET_LOCK         0x02             /**< 设置加锁函数 */
 #define FDB_TSDB_CTRL_SET_UNLOCK       0x03             /**< 设置解锁函数 */
-#define FDB_TSDB_CTRL_SET_ROLLOVER     0x04             /**< 设置是否滚动写入，默认滚动。设置非滚动时，如果数据库写满，无法再追加写入。需要在数据库初始化前配置 */
+#define FDB_TSDB_CTRL_SET_ROLLOVER     0x04             /**< 设置是否滚动写入，默认滚动。设置非滚动时，如果数据库写满，无法再追加写入。需要在数据库初始化后配置 */
 #define FDB_TSDB_CTRL_GET_ROLLOVER     0x05             /**< 获取是否滚动写入 */
 #define FDB_TSDB_CTRL_GET_LAST_TIME    0x06             /**< 获取上次追加 TSL 时的时间戳  */
 #define FDB_TSDB_CTRL_SET_FILE_MODE    0x09             /**< 设置文件模式，需要在数据库初始化前配置，需要在数据库初始化前配置 */
