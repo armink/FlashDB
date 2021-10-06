@@ -14,6 +14,20 @@ Enable KV automatic upgrade function. After this function is enabled, `fdb_kvdb.
 
 Enable TSDB feature
 
+## FDB_USING_FAL_MODE
+
+Enable FAL mode, partition in FAL is used to store the database. In this mode, FlashDB directly operates Flash, so performance is better.
+
+## FDB_USING_FILE_POSIX_MODE
+
+Using POSIX file mode, you need to provide an open/read/write/close related file access interface.
+
+## FDB_USING_FILE_LIBC_MODE
+
+Using the file mode of the C standard library, you need to provide a fopen/fread/fwrte/fclose related file access interface.
+
+> FDB_USING_FILE_LIBC_MODE and FDB_USING_FILE_POSIX_MODE mode can ONLY be one. Compared to FAL mode, the storage location, size and quantity of the database in the file mode are not limited.
+
 ## FDB_WRITE_GRAN
 
 Flash write granularity, the unit is bit. Currently supports

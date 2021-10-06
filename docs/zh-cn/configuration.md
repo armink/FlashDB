@@ -14,6 +14,20 @@ FlashDB 的使用时，可以通过 fdb_cfg.h 对其进行功能配置，该文�
 
 使能 TSDB 功能
 
+## FDB_USING_FAL_MODE
+
+使能 FAL 模式，FAL 里的分区用于存储数据库。该模式下，FlashDB 直接操作 Flash，所以性能较好
+
+## FDB_USING_FILE_POSIX_MODE
+
+使用 POSIX 的文件模式，需要系统提供 open/read/write/close 相关文件访问接口。
+
+## FDB_USING_FILE_LIBC_MODE
+
+使用 C 标准库的文件模式，需要系统提供 fopen/fread/fwrite/fclose 相关文件访问接口。
+
+> FDB_USING_FILE_LIBC_MODE 与 FDB_USING_FILE_POSIX_MODE 模式只能二选一。相比 FAL 模式，文件模式下数据库的存储位置、大小及数量没有限制。
+
 ## FDB_WRITE_GRAN
 
 Flash 写粒度，单位为 bit。目前支持
