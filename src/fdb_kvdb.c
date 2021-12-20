@@ -770,12 +770,12 @@ static fdb_err_t update_sec_status(fdb_kvdb_t db, kv_sec_info_t sector, size_t n
 }
 
 static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_store_status_t status, void *arg1, void *arg2,
-        bool (*callback)(kv_sec_info_t sector, void *arg1, void *arg2), bool traversal_kv)
+        bool (*callback)(kv_sec_info_t sector, void *arg1, void *arg2), bool traversal_kv, uint32_t start_addr)
 {
     uint32_t sec_addr;
 
-    /* search all sectors */
-    sec_addr = 0;
+    /* search sectors starting at start_addr */
+    sec_addr = start_addr;
     do {
         read_sector_info(db, sec_addr, sector, false);
         if (status == FDB_SECTOR_STORE_UNUSED || status == sector->status.store) {
@@ -827,14 +827,14 @@ static uint32_t alloc_kv(fdb_kvdb_t db, kv_sec_info_t sector, size_t kv_size)
     struct alloc_kv_cb_args arg = {db, kv_size, &empty_kv};
 
     /* sector status statistics */
-    sector_iterator(db, sector, FDB_SECTOR_STORE_UNUSED, &empty_sector, &using_sector, sector_statistics_cb, false);
+    sector_iterator(db, sector, FDB_SECTOR_STORE_UNUSED, &empty_sector, &using_sector, sector_statistics_cb, false, 0);
     if (using_sector > 0) {
         /* alloc the KV from the using status sector first */
-        sector_iterator(db, sector, FDB_SECTOR_STORE_USING, &arg, NULL, alloc_kv_cb, true);
+        sector_iterator(db, sector, FDB_SECTOR_STORE_USING, &arg, NULL, alloc_kv_cb, true, 0);
     }
     if (empty_sector > 0 && empty_kv == FAILED_ADDR) {
         if (empty_sector > FDB_GC_EMPTY_SEC_THRESHOLD || db->gc_request) {
-            sector_iterator(db, sector, FDB_SECTOR_STORE_EMPTY, &arg, NULL, alloc_kv_cb, true);
+            sector_iterator(db, sector, FDB_SECTOR_STORE_EMPTY, &arg, NULL, alloc_kv_cb, true, 0);
         } else {
             /* no space for new KV now will GC and retry */
             FDB_DEBUG("Trigger a GC check after alloc KV failed.\n");
@@ -1045,12 +1045,12 @@ static void gc_collect(fdb_kvdb_t db)
     size_t empty_sec = 0;
 
     /* GC check the empty sector number */
-    sector_iterator(db, &sector, FDB_SECTOR_STORE_EMPTY, &empty_sec, NULL, gc_check_cb, false);
+    sector_iterator(db, &sector, FDB_SECTOR_STORE_EMPTY, &empty_sec, NULL, gc_check_cb, false, 0);
 
     /* do GC collect */
     FDB_DEBUG("The remain empty sector is %u, GC threshold is %d.\n", (uint32_t)empty_sec, FDB_GC_EMPTY_SEC_THRESHOLD);
     if (empty_sec <= FDB_GC_EMPTY_SEC_THRESHOLD) {
-        sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, db, NULL, do_gc, false);
+        sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, db, NULL, do_gc, false, 0);
     }
 
     db->gc_request = false;
@@ -1503,7 +1503,7 @@ fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
 
     db->in_recovery_check = true;
     /* check all sector header */
-    sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &check_failed_count, db, check_sec_hdr_cb, false);
+    sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &check_failed_count, db, check_sec_hdr_cb, false, 0);
     if (db->parent.not_formatable && check_failed_count > 0) {
         result = FDB_READ_ERR;
         goto __exit;
@@ -1517,7 +1517,7 @@ fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
     /* lock the KV cache */
     db_lock(db);
     /* check all sector header for recovery GC */
-    sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, db, NULL, check_and_recovery_gc_cb, false);
+    sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, db, NULL, check_and_recovery_gc_cb, false, 0);
 
 __retry:
     /* check all KV for recovery */
