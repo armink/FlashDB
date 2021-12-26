@@ -775,9 +775,12 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
         if (check_sec_arg.empty_num > 0) {
             latest_addr = check_sec_arg.empty_addr;
         } else {
-            latest_addr = db->cur_sec.addr;
-            /* There is no empty sector. */
-            latest_addr = db->cur_sec.addr = db_max_size(db) - db_sec_size(db);
+            if (db->rollover) {
+                latest_addr = db->cur_sec.addr;
+            } else {
+                /* There is no empty sector. */
+                latest_addr = db->cur_sec.addr = db_max_size(db) - db_sec_size(db);
+            }
         }
         /* db->cur_sec is the latest sector, and the next is the oldest sector */
         if (latest_addr + db_sec_size(db) >= db_max_size(db)) {
