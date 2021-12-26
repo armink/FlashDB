@@ -112,7 +112,7 @@ static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
     /* read TSL index raw data */
     _fdb_flash_read((fdb_db_t)db, tsl->addr.index, (uint32_t *) &idx, sizeof(struct log_idx_data));
     tsl->status = (fdb_tsl_status_t) _fdb_get_status(idx.status_table, FDB_TSL_STATUS_NUM);
-    if (tsl->status == FDB_TSL_PRE_WRITE) {
+    if ((tsl->status == FDB_TSL_PRE_WRITE) || (tsl->status == FDB_TSL_UNUSED)) {
         tsl->log_len = db->max_len;
         tsl->addr.log = FDB_DATA_UNUSED;
         tsl->time = 0;
@@ -510,13 +510,15 @@ void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl
                 /* search all TSL */
                 do {
                     read_tsl(db, &tsl);
-                    if (tsl.time >= from && tsl.time <= to) {
-                        /* iterator is interrupted when callback return true */
-                        if (cb(&tsl, cb_arg)) {
+                    if (tsl.status != FDB_TSL_UNUSED) {
+                        if (tsl.time >= from && tsl.time <= to) {
+                            /* iterator is interrupted when callback return true */
+                            if (cb(&tsl, cb_arg)) {
+                                return;
+                            }
+                        } else {
                             return;
                         }
-                    } else {
-                        return;
                     }
                 } while ((tsl.addr.index = get_next_tsl_addr(&sector, &tsl)) != FAILED_ADDR);
             }

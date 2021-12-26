@@ -230,7 +230,9 @@ size_t fdb_blob_read(fdb_db_t db, fdb_blob_t blob)
     if (read_len > blob->saved.len) {
         read_len = blob->saved.len;
     }
-    _fdb_flash_read(db, blob->saved.addr, blob->buf, read_len);
+    if (_fdb_flash_read(db, blob->saved.addr, blob->buf, read_len) != FDB_NO_ERR) {
+        read_len = 0;
+    }
 
     return read_len;
 }
@@ -253,7 +255,9 @@ fdb_err_t _fdb_flash_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
 #endif
     } else {
 #ifdef FDB_USING_FAL_MODE
-        fal_partition_read(db->storage.part, addr, (uint8_t *) buf, size);
+        if (fal_partition_read(db->storage.part, addr, (uint8_t *) buf, size) < 0) {
+            result = FDB_READ_ERR;
+        }
 #endif
     }
 
