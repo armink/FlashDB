@@ -12,6 +12,10 @@
 #ifndef _FDB_DEF_H_
 #define _FDB_DEF_H_
 
+#if defined(FDB_USING_FILE_LITTLEFS_MODE)
+#include "lfs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -39,7 +43,7 @@ extern "C" {
 #define FDB_KV_USING_CACHE
 #endif
 
-#if defined(FDB_USING_FILE_LIBC_MODE) || defined(FDB_USING_FILE_POSIX_MODE)
+#if defined(FDB_USING_FILE_LIBC_MODE) || defined(FDB_USING_FILE_POSIX_MODE) || defined(FDB_USING_FILE_LITTLEFS_MODE)
 #define FDB_USING_FILE_MODE
 #endif
 
@@ -272,6 +276,10 @@ struct fdb_db {
     int cur_file;                                /**< current file object */
 #elif defined(FDB_USING_FILE_LIBC_MODE)
     FILE *cur_file;                              /**< current file object */
+#elif defined(FDB_USING_FILE_LITTLEFS_MODE)
+    lfs_file_t *cur_file;                        /**< current file object */
+    lfs_t *cur_lfs;                              /**< current partition object */
+    struct lfs_file_config cur_file_config;          /**< current file object config */ 
 #endif
     uint32_t cur_sec;                            /**< current operate sector address  */
 #endif

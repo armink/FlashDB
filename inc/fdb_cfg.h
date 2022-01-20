@@ -12,6 +12,8 @@
 #ifndef _FDB_CFG_H_
 #define _FDB_CFG_H_
 
+#include "SEGGER_RTT.h"
+
 /* using KVDB feature */
 #define FDB_USING_KVDB
 
@@ -21,19 +23,13 @@
 #endif
 
 /* using TSDB (Time series database) feature */
-#define FDB_USING_TSDB
-
-/* Using FAL storage mode */
-#define FDB_USING_FAL_MODE
-
-#ifdef FDB_USING_FAL_MODE
-/* the flash write granularity, unit: bit
- * only support 1(nor flash)/ 8(stm32f2/f4)/ 32(stm32f1) */
-#define FDB_WRITE_GRAN                /* @note you must define it for a value */
-#endif
+//#define FDB_USING_TSDB
 
 /* Using file storage mode by LIBC file API, like fopen/fread/fwrte/fclose */
 /* #define FDB_USING_FILE_LIBC_MODE */
+
+/* Using file storage mode by LIBC file API, like fopen/fread/fwrte/fclose */
+#define FDB_USING_FILE_LITTLEFS_MODE
 
 /* Using file storage mode by POSIX file API, like open/read/write/close */
 /* #define FDB_USING_FILE_POSIX_MODE */
@@ -42,7 +38,7 @@
 /* #define FDB_BIG_ENDIAN */ 
 
 /* log print macro. default EF_PRINT macro is printf() */
-/* #define FDB_PRINT(...)              my_printf(__VA_ARGS__) */
+#define FDB_PRINT(...)              SEGGER_RTT_printf(0U, __VA_ARGS__)
 
 /* print debug information */
 #define FDB_DEBUG_ENABLE
