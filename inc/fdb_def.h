@@ -279,7 +279,7 @@ struct fdb_db {
 #elif defined(FDB_USING_FILE_LITTLEFS_MODE)
     lfs_file_t *cur_file;                        /**< current file object */
     lfs_t *cur_lfs;                              /**< current partition object */
-    struct lfs_file_config cur_file_config;          /**< current file object config */ 
+    struct lfs_file_config cur_file_config;      /**< current file object config usefull for file buffer static allocation */ 
 #endif
     uint32_t cur_sec;                            /**< current operate sector address  */
 #endif

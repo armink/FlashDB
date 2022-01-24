@@ -42,12 +42,12 @@ fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *path, fdb_db_t
         FDB_ASSERT(db->max_size != 0);
 #if  defined(FDB_USING_FILE_POSIX_MODE)
         db->cur_file = -1;
+#elif defined(FDB_USING_FILE_LIBC_MODE)      
+        db->cur_file = 0;      
 #elif defined(FDB_USING_FILE_LITTLEFS_MODE)
         db->cur_file = 0;
         db->cur_lfs = 0;
         memset(&db->cur_file_config, 0, sizeof(db->cur_file_config));
-#else      
-        db->cur_file = 0;
 #endif
         db->storage.dir = path;
         FDB_ASSERT(strlen(path) != 0)

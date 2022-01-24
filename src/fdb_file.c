@@ -221,8 +221,7 @@ static lfs_file_t *open_db_file(fdb_db_t db, uint32_t addr, bool clean)
 {
     uint32_t sec_addr = FDB_ALIGN_DOWN(addr, db->sec_size);
     lfs_file_t *fd = db->cur_file;
-    char path[DB_PATH_MAX];
-  
+    char path[DB_PATH_MAX];  
     static uint8_t ui8_file_buffer[FILE_CACHE_SIZE];
     static lfs_file_t file;
   
