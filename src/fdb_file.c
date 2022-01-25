@@ -100,7 +100,7 @@ fdb_err_t _fdb_file_write(fdb_db_t db, uint32_t addr, const void *buf, size_t si
             fsync(fd);
         }
     } else {
-        result = FDB_READ_ERR;
+        result = FDB_WRITE_ERR;
     }
 
     return result;
