@@ -38,7 +38,11 @@
 /* #define FDB_BIG_ENDIAN */ 
 
 /* log print macro. default EF_PRINT macro is printf() */
+#if DEBUG_
 #define FDB_PRINT(...)              SEGGER_RTT_printf(0U, __VA_ARGS__)
+#else
+#define FDB_PRINT(...)
+#endif
 
 /* print debug information */
 #define FDB_DEBUG_ENABLE
