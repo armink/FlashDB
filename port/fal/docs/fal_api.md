@@ -132,7 +132,7 @@ struct rt_device *fal_mtd_nor_device_create(const char *parition_name)
 
 ## 创建字符设备
 
-该函数可以根据指定的分区名称，创建对应的字符设备，以便于通过 deivice 接口或 devfs 接口操作分区，开启了 POSIX 后，还可以通过 oepn/read/write 函数操作分区。
+该函数可以根据指定的分区名称，创建对应的字符设备，以便于通过 deivice 接口或 devfs 接口操作分区，开启了 POSIX 后，还可以通过 open/read/write 函数操作分区。
 
 ```C
 struct rt_device *fal_char_device_create(const char *parition_name)

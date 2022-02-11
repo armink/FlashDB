@@ -1,21 +1,7 @@
 /*
- * File      : fal_rtt.c
- * This file is part of FAL (Flash Abstraction Layer) package
- * COPYRIGHT (C) 2006 - 2018, RT-Thread Development Team
+ * Copyright (c) 2006-2018, RT-Thread Development Team
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Change Logs:
  * Date           Author       Notes
@@ -794,12 +780,14 @@ static void fal(uint8_t argc, char **argv) {
                 }
                 /* full chip benchmark test */
                 uint32_t start_time, time_cast;
-                size_t write_size = strtol(argv[2], NULL, 0), read_size = strtol(argv[2], NULL, 0), cur_read_size;
+                size_t write_size = strtol(argv[2], NULL, 0), read_size = strtol(argv[2], NULL, 0), cur_op_size;
                 uint8_t *write_data = (uint8_t *)rt_malloc(write_size), *read_data = (uint8_t *)rt_malloc(read_size);
 
                 if (write_data && read_data)
                 {
-                    memset(write_data, 0x55, write_size);
+                    for (i = 0; i < write_size; i ++) {
+                        write_data[i] = i & 0xFF;
+                    }
                     if (flash_dev)
                     {
                         size = flash_dev->len;
@@ -834,13 +822,21 @@ static void fal(uint8_t argc, char **argv) {
                     start_time = rt_tick_get();
                     for (i = 0; i < size; i += write_size)
                     {
+                        if (i + write_size <= size)
+                        {
+                            cur_op_size = write_size;
+                        }
+                        else
+                        {
+                            cur_op_size = size - i;
+                        }
                         if (flash_dev)
                         {
-                            result = flash_dev->ops.write(i, write_data, write_size);
+                            result = flash_dev->ops.write(i, write_data, cur_op_size);
                         }
                         else if (part_dev)
                         {
-                            result = fal_partition_write(part_dev, i, write_data, write_size);
+                            result = fal_partition_write(part_dev, i, write_data, cur_op_size);
                         }
                         if (result < 0)
                         {
@@ -864,22 +860,30 @@ static void fal(uint8_t argc, char **argv) {
                     {
                         if (i + read_size <= size)
                         {
-                            cur_read_size = read_size;
+                            cur_op_size = read_size;
                         }
                         else
                         {
-                            cur_read_size = size - i;
+                            cur_op_size = size - i;
                         }
                         if (flash_dev)
                         {
-                            result = flash_dev->ops.read(i, read_data, cur_read_size);
+                            result = flash_dev->ops.read(i, read_data, cur_op_size);
                         }
                         else if (part_dev)
                         {
-                            result = fal_partition_read(part_dev, i, read_data, cur_read_size);
+                            result = fal_partition_read(part_dev, i, read_data, cur_op_size);
                         }
                         /* data check */
-                        if (memcmp(write_data, read_data, cur_read_size))
+                        for (int index = 0; index < cur_op_size; index ++)
+                        {
+                            if (write_data[index] != read_data[index])
+                            {
+                                rt_kprintf("%d %d %02x %02x.\n", i, index, write_data[index], read_data[index]);
+                            }
+                        }
+
+                        if (memcmp(write_data, read_data, cur_op_size))
                         {
                             result = -RT_ERROR;
                             rt_kprintf("Data check ERROR! Please check you flash by other command.\n");

@@ -1,21 +1,7 @@
 /*
- * File      : fal_flash.c
- * This file is part of FAL (Flash Abstraction Layer) package
- * COPYRIGHT (C) 2006 - 2018, RT-Thread Development Team
+ * Copyright (c) 2006-2018, RT-Thread Development Team
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Change Logs:
  * Date           Author       Notes
@@ -42,7 +28,6 @@ static uint8_t init_ok = 0;
 int fal_flash_init(void)
 {
     size_t i;
-    const struct fal_flash_dev *dev;
 
     if (init_ok)
     {
@@ -51,7 +36,6 @@ int fal_flash_init(void)
 
     for (i = 0; i < device_table_len; i++)
     {
-        dev = device_table[i];
         assert(device_table[i]->ops.read);
         assert(device_table[i]->ops.write);
         assert(device_table[i]->ops.erase);
@@ -61,8 +45,8 @@ int fal_flash_init(void)
             device_table[i]->ops.init();
         }
         log_d("Flash device | %*.*s | addr: 0x%08lx | len: 0x%08x | blk_size: 0x%08x |initialized finish.",
-                FAL_DEV_NAME_MAX, FAL_DEV_NAME_MAX, dev->name, dev->addr, dev->len,
-                dev->blk_size);
+                FAL_DEV_NAME_MAX, FAL_DEV_NAME_MAX, device_table[i]->name, device_table[i]->addr, device_table[i]->len,
+                device_table[i]->blk_size);
     }
 
     init_ok = 1;
