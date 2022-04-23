@@ -72,6 +72,8 @@
         if (result != FDB_NO_ERR) return result;                               \
     } while(0);
 
+#pragma pack(push,1)
+
 struct sector_hdr_data {
     uint8_t status[FDB_STORE_STATUS_TABLE_SIZE]; /**< sector store status @see fdb_sector_store_status_t */
     uint32_t magic;                              /**< magic word(`T`, `S`, `L`, `0`) */
@@ -93,6 +95,8 @@ struct log_idx_data {
     uint32_t log_addr;                           /**< node address */
 };
 typedef struct log_idx_data *log_idx_data_t;
+
+#pragma pack(pop)
 
 struct query_count_args {
     fdb_tsl_status_t status;
