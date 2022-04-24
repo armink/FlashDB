@@ -1482,8 +1482,10 @@ static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
         _fdb_write_status((fdb_db_t)db, kv->addr.start, status_table, FDB_KV_STATUS_NUM, FDB_KV_ERR_HDR, true);
         return true;
     } else if (kv->crc_is_ok && kv->status == FDB_KV_WRITE) {
-        /* update the cache when first load */
+#ifdef FDB_KV_USING_CACHE
+        /* update the cache when first load. If caching is disabled, this step is not performed */
         update_kv_cache(db, kv->name, kv->name_len, kv->addr.start);
+#endif
     }
 
     return false;
