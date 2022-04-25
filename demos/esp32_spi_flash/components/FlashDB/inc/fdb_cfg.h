@@ -12,8 +12,6 @@
 #ifndef _FDB_CFG_H_
 #define _FDB_CFG_H_
 
-#define DEMO_ESP32
-
 /* using KVDB feature */
 #define FDB_USING_KVDB
 
@@ -40,9 +38,6 @@
  * default EF_PRINT macro is printf() */
 //#include <esp_log.h>
 //#define FDB_PRINT(...) ESP_LOGI("fdb", __VA_ARGS__)
-
-/* Use 64 bit for timestamps. */
-//#define FDB_USING_TIMESTAMP_64BIT
 
 /* print debug information */
 #define FDB_DEBUG_ENABLE
