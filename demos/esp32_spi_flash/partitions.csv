@@ -1,0 +1,14 @@
+# The partition named "flashdb" will contain the partitions for the kvdb and tsdb.
+# Note that this partition must be at least as large as the sum of all partitions as
+# defined in FAL_PART_TABLE in fal_cfg.h.
+# The offsets are left blank intentionally so that the partitions will be arranged
+# automatically.
+# The partition type for the partition "flashdb" was set to 0x40, a custom type.
+# The subtype was set to 0x0. These values must correspond to the settings in the
+# init() function in fal_flash_esp32_port.c.
+
+# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,           ,  16k,
+phy_init, data, phy,           ,  4k,
+flashdb,  0x40, 0x00,          ,  32k,
+factory,  app,  factory,       ,  1M,
