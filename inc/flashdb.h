@@ -60,6 +60,7 @@ bool              fdb_kv_iterate      (fdb_kvdb_t db, fdb_kv_iterator_t itr);
 /* Time series log API like a TSDB */
 fdb_err_t  fdb_tsl_append      (fdb_tsdb_t db, fdb_blob_t blob);
 void       fdb_tsl_iter        (fdb_tsdb_t db, fdb_tsl_cb cb, void *cb_arg);
+void       fdb_tsl_iter_rev    (fdb_tsdb_t db, fdb_tsl_cb cb, void *arg)
 void       fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl_cb cb, void *cb_arg);
 size_t     fdb_tsl_query_count (fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl_status_t status);
 fdb_err_t  fdb_tsl_set_status  (fdb_tsdb_t db, fdb_tsl_t tsl, fdb_tsl_status_t status);
