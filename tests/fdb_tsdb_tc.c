@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if defined(RT_USING_UTEST) && defined(FDB_USING_TSDB) 
+#if defined(RT_USING_UTEST) && defined(FDB_USING_TSDB)
 
 #define TEST_TS_PART_NAME             "fdb_tsdb1"
 #define TEST_TS_COUNT                 256
