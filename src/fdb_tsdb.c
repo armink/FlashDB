@@ -471,9 +471,8 @@ void fdb_tsl_iter_reverse(fdb_tsdb_t db, fdb_tsl_cb cb, void *arg)
             if (sector.status == FDB_SECTOR_STORE_USING) {
                 /* copy the current using sector status  */
                 sector = db->cur_sec;
-                tsl.addr.index = db->cur_sec.empty_idx - LOG_IDX_DATA_SIZE;
-            } else
-                tsl.addr.index = sector.end_idx;
+            }
+            tsl.addr.index = sector.end_idx;
             /* search all TSL */
             do {
                 read_tsl(db, &tsl);
@@ -535,6 +534,28 @@ void fdb_tsl_iter(fdb_tsdb_t db, fdb_tsl_cb cb, void *arg)
 }
 
 /**
+ * The TSDB iterator for each TSL addr.
+ * @param db database object
+ * @param starting tsl addr of the current sector
+ * @param ending tsl addr of the current sector
+ * @param from starting timestap
+ */
+static int search_tsl_addr(fdb_tsdb_t db,int start,int end,int from)
+{
+    struct fdb_tsl tsl;
+    while (start <= end) {
+        tsl.addr.index = start + ((end - start) / 2 + 1) / LOG_IDX_DATA_SIZE * LOG_IDX_DATA_SIZE;
+        read_tsl(db, &tsl);
+        if (tsl.time < from) {
+            start = tsl.addr.index + LOG_IDX_DATA_SIZE;
+        } else {
+            end = tsl.addr.index - LOG_IDX_DATA_SIZE;
+        }
+    }
+    return start;
+}
+
+/**
  * The TSDB iterator for each TSL by timestamp.
  *
  * @param db database object
@@ -546,12 +567,25 @@ void fdb_tsl_iter(fdb_tsdb_t db, fdb_tsl_cb cb, void *arg)
 void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl_cb cb, void *cb_arg)
 {
     struct tsdb_sec_info sector;
-    uint32_t sec_addr, oldest_addr = db->oldest_addr, traversed_len = 0;
+    uint32_t sec_addr, oldest_addr, traversed_len = 0;
     struct fdb_tsl tsl;
     bool found_start_tsl = false;
 
+    uint32_t (*get_sector_addr)(fdb_tsdb_t , tsdb_sec_info_t , uint32_t);
+    uint32_t (*get_tsl_addr)(tsdb_sec_info_t , fdb_tsl_t);
+
     if (!db_init_ok(db)) {
         FDB_INFO("Error: TSL (%s) isn't initialize OK.\n", db_name(db));
+    }
+
+    if(from <= to) {
+        oldest_addr = db->oldest_addr;
+        get_sector_addr = get_next_sector_addr;
+        get_tsl_addr = get_next_tsl_addr;
+    } else {
+        oldest_addr = db->cur_sec.addr;
+        get_sector_addr = get_prev_sector_addr;
+        get_tsl_addr = get_prev_tsl_addr;
     }
 
 //    FDB_INFO("from %s", ctime((const time_t * )&from));
@@ -564,51 +598,44 @@ void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl
     sec_addr = oldest_addr;
     /* search all sectors */
     do {
-        traversed_len += db_sec_size(db);
-        if (read_sector_info(db, sec_addr, &sector, false) != FDB_NO_ERR) {
-            continue;
-        }
-        /* sector has TSL */
-        if ((sector.status == FDB_SECTOR_STORE_USING || sector.status == FDB_SECTOR_STORE_FULL)) {
-            if (sector.status == FDB_SECTOR_STORE_USING) {
-                /* copy the current using sector status  */
-                sector = db->cur_sec;
-            }
-            if ((found_start_tsl) || (!found_start_tsl && ((from >= sector.start_time && from <= sector.end_time)
-                                       || (sec_addr == oldest_addr && from <= sector.start_time)))) {
-                uint32_t start = sector.addr + SECTOR_HDR_DATA_SIZE, end = sector.end_idx;
+       traversed_len += db_sec_size(db);
+           if (read_sector_info(db, sec_addr, &sector, false) != FDB_NO_ERR) {
+               continue;
+           }
+           /* sector has TSL */
+           if ((sector.status == FDB_SECTOR_STORE_USING || sector.status == FDB_SECTOR_STORE_FULL)) {
+               if (sector.status == FDB_SECTOR_STORE_USING) {
+                   /* copy the current using sector status  */
+                   sector = db->cur_sec;
+               }
+               if ((found_start_tsl) || (!found_start_tsl && ((from >= sector.start_time && from <= sector.end_time)
+                                          || (from <= to && sec_addr == oldest_addr && from <= sector.start_time)
+                                          || (from > to && sec_addr == oldest_addr && from >= sector.end_time)))) {
+                   uint32_t start = sector.addr + SECTOR_HDR_DATA_SIZE, end = sector.end_idx;
 
-                found_start_tsl = true;
-                /* search start TSL address, using binary search algorithm */
-                while (start <= end) {
-                    tsl.addr.index = start + ((end - start) / 2 + 1) / LOG_IDX_DATA_SIZE * LOG_IDX_DATA_SIZE;
-                    read_tsl(db, &tsl);
-                    if (tsl.time < from) {
-                        start = tsl.addr.index + LOG_IDX_DATA_SIZE;
-                    } else {
-                        end = tsl.addr.index - LOG_IDX_DATA_SIZE;
-                    }
-                }
-                tsl.addr.index = start;
-                /* search all TSL */
-                do {
-                    read_tsl(db, &tsl);
-                    if (tsl.status != FDB_TSL_UNUSED) {
-                        if (tsl.time >= from && tsl.time <= to) {
-                            /* iterator is interrupted when callback return true */
-                            if (cb(&tsl, cb_arg)) {
-                                return;
-                            }
-                        } else {
-                            return;
-                        }
-                    }
-                } while ((tsl.addr.index = get_next_tsl_addr(&sector, &tsl)) != FAILED_ADDR);
-            }
-        } else if (sector.status == FDB_SECTOR_STORE_EMPTY) {
-            return;
-        }
-    } while ((sec_addr = get_next_sector_addr(db, &sector, traversed_len)) != FAILED_ADDR);
+                   found_start_tsl = true;
+
+                   tsl.addr.index = search_tsl_addr(db,start,end,from);
+
+                   /* search all TSL */
+                   do {
+                       read_tsl(db, &tsl);
+                       if (tsl.status != FDB_TSL_UNUSED) {
+                           if ((from <= to && tsl.time >= from && tsl.time <= to) || (from > to && tsl.time <= from && tsl.time >= to)) {
+                               /* iterator is interrupted when callback return true */
+                               if (cb(&tsl, cb_arg)) {
+                                   return;
+                               }
+                           } else {
+                               return;
+                           }
+                       }
+                   } while ((tsl.addr.index = get_tsl_addr(&sector, &tsl)) != FAILED_ADDR);
+               }
+           } else if (sector.status == FDB_SECTOR_STORE_EMPTY) {
+               return;
+           }
+       } while ((sec_addr = get_sector_addr(db, &sector, traversed_len)) != FAILED_ADDR);
 }
 
 static bool query_count_cb(fdb_tsl_t tsl, void *arg)
