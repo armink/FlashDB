@@ -13,7 +13,7 @@ The process of constructing a blob object, its internal is the process of initia
 | blob | blob initial object |
 | value_buf | Buffer for storing data |
 | buf_len | The size of the buffer |
-| Back | The blob object after creation |
+| Return | The blob object after creation |
 
 ### Read blob data
 
@@ -40,7 +40,7 @@ Through the API of KVDB and TSDB, the blob object can be returned, and the stora
 | path | FAL mode: the partition name in the partition table, file mode: the path where the database is saved |
 | default_kv | The default KV collection, when the first initialization, the default KV will be written to the database |
 | user_data | User-defined data, NULL if not available |
-| Back | Error Code |
+| Return | Error Code |
 
 ### Control KVDB
 
@@ -53,7 +53,7 @@ Through the command control word, the user can perform some control operations o
 | db | Database Objects |
 | cmd | Command control word |
 | arg | Controlled parameters |
-| Back | Error Code |
+| Return | Error Code |
 
 The supported command control words are as follows:
 
@@ -102,7 +102,7 @@ Get the corresponding value by KV's name. Support two interfaces
 | db | Database Objects |
 | key | KV name |
 | blob | blob object, as the value of KV |
-| Back | Error Code |
+| Return | Error Code |
 
 Example:
 
@@ -122,7 +122,7 @@ fdb_kv_set_blob(kvdb, "temp", fdb_blob_make(&blob, &temp_data, sizeof(temp_data)
 | db | Database Objects |
 | key | KV name |
 | value | KV value |
-| Back | Error Code |
+| Return | Error Code |
 
 ### Get KV
 
@@ -135,7 +135,7 @@ fdb_kv_set_blob(kvdb, "temp", fdb_blob_make(&blob, &temp_data, sizeof(temp_data)
 | db | Database Objects |
 | key | KV name |
 | blob | Return the blob value of KV through the blob object |
-| Back | Error Code |
+| Return | Error Code |
 
 Example:
 
@@ -161,7 +161,7 @@ Unlike the `fdb_kv_get_blob` API, this API does not execute the reading of value
 | db | Database Objects |
 | key | KV name |
 | kv | Through the KV object, return the attributes of the KV, and then use `fdb_kv_to_blob` to convert to a blob object, and then read the data |
-| Back | Error Code |
+| Return | Error Code |
 
 #### Get string type KV
 
@@ -188,7 +188,7 @@ Unlike the `fdb_kv_get_blob` API, this API does not execute the reading of value
 | ---- | ---------- |
 | db | Database Objects |
 | key | KV name |
-| Back | Error Code |
+| Return | Error Code |
 
 ### Reset KVDB
 
@@ -199,7 +199,7 @@ Reset the KV in KVDB to the **first initial** default value
 | Parameters | Description |
 | ---- | ---------- |
 | db | Database Objects |
-| Back | Error Code |
+| Return | Error Code |
 
 ### Print KV information in KVDB
 
@@ -208,7 +208,7 @@ Reset the KV in KVDB to the **first initial** default value
 | Parameters | Description |
 | ---- | ---------- |
 | db | Database Objects |
-| Back | Error Code |
+| Return | Error Code |
 
 ### Convert KV objects to blob objects
 
@@ -252,7 +252,7 @@ Using this iterator API, all KVs in the entire KVDB can be traversed.
 | get_time | Function to get the current timestamp |
 | max_len | Maximum length of each TSL |
 | user_data | User-defined data, NULL if not available |
-| Back | Error Code |
+| Return | Error Code |
 
 ### Control TSDB
 
@@ -265,7 +265,7 @@ Through the command control word, the user can perform some control operations o
 | db | Database Objects |
 | cmd | Command control word |
 | arg | Controlled parameters |
-| Back | Error Code |
+| Return | Error Code |
 
 The supported command control words are as follows:
 
@@ -300,7 +300,7 @@ For TSDB, the process of adding TSL is the process of appending a new TSL to the
 | ---- | --------------------------- |
 | db | Database Objects |
 | blob | blob object, as TSL data |
-| Back | Error Code |
+| Return | Error Code |
 
 ### Iterative TSL
 
@@ -313,7 +313,20 @@ Traverse the entire TSDB and execute iterative callbacks
 | db | Database Objects |
 | cb | Callback function, which will be executed every time the TSL is traversed |
 | cb_arg | Parameters of the callback function |
-| Back | Error Code |
+| Return | Error Code |
+
+### Reverse iterative TSL
+
+Reverse traverse the entire TSDB and execute iterative callbacks
+
+`void fdb_tsl_iter_reverse(fdb_tsdb_t db, fdb_tsl_cb cb, void *arg)`
+
+| Parameters | Description                                                  |
+| ---------- | ------------------------------------------------------------ |
+| db         | Database Objects                                             |
+| cb         | Callback function, which will be executed every time the TSL is traversed |
+| cb_arg     | Parameters of the callback function                          |
+| Return     | Error Code                                                   |
 
 ### Iterate TSL by time period
 
@@ -324,11 +337,11 @@ According to the time range, traverse the entire TSDB and execute iterative call
 | Parameters | Description |
 | ------ | --------------------------------------- |
 | db | Database Objects |
-| from | Start timestamp |
+| from | Start timestamp. It will be a reverse iterator when ending timestap less than starting timestap |
 | to | End timestamp |
 | cb | Callback function, which will be executed every time the TSL is traversed |
 | cb_arg | Parameters of the callback function |
-| Back | Error Code |
+| Return | Error Code |
 
 ### Query the number of TSL
 
@@ -341,7 +354,7 @@ According to the incoming time period, query the number of TSLs that meet the st
 | from | Start timestamp |
 | to | End timestamp |
 | status | TSL status conditions |
-| Back | Quantity |
+| Return | Quantity |
 
 ### Set TSL status
 
@@ -354,7 +367,7 @@ For TSL status, please refer to `enum fdb_tsl_status`. TSL status MUST be set in
 | db | Database Objects |
 | tsl | TSL Object |
 | status | TSL's new status |
-| Back | Error Code |
+| Return | Error Code |
 
 ### Clear TSDB
 
@@ -363,7 +376,7 @@ For TSL status, please refer to `enum fdb_tsl_status`. TSL status MUST be set in
 | Parameters | Description |
 | ---- | ---------- |
 | db | Database Objects |
-| Back | Error Code |
+| Return | Error Code |
 
 ### Convert TSL objects to blob objects
 
