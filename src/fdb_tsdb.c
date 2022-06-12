@@ -23,7 +23,7 @@
 #undef  FDB_LOG_PREFIX2
 #define FDB_LOG_PREFIX2()                         FDB_PRINT("[%s] ", db_name(db))
 
-//#if defined(FDB_USING_TSDB)
+#if defined(FDB_USING_TSDB)
 
 /* magic word(`T`, `S`, `L`, `0`) */
 #define SECTOR_MAGIC_WORD                        0x304C5354
@@ -559,7 +559,7 @@ static int search_tsl_addr(fdb_tsdb_t db,int start,int end,int from)
  * The TSDB iterator for each TSL by timestamp.
  *
  * @param db database object
- * @param from starting timestap, it will be a reverse iterator when ending timestap less than starting timestap
+ * @param from starting timestap. It will be a reverse iterator when ending timestap less than starting timestap
  * @param to ending timestap
  * @param cb callback
  * @param arg callback argument
