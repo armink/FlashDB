@@ -332,6 +332,9 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
     } else if (kv->len > db_sec_size(db) - SECTOR_HDR_DATA_SIZE && kv->len < db_max_size(db)) {
         //TODO 扇区连续模式，或者写入长度没有写入完整
         FDB_ASSERT(0);
+    } else if (FDB_KV_DELETED == kv->status) {
+        kv->crc_is_ok = false;
+        return FDB_READ_ERR;
     }
 
     /* CRC32 data len(header.name_len + header.value_len + name + value) */
