@@ -800,10 +800,24 @@ void fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg)
         *(uint32_t *)arg = db->parent.sec_size;
         break;
     case FDB_TSDB_CTRL_SET_LOCK:
+#if __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
         db->parent.lock = (void (*)(fdb_db_t db))arg;
+#if __GNUC__
+#pragma GCC diagnostic pop
+#endif
         break;
     case FDB_TSDB_CTRL_SET_UNLOCK:
+#if __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
         db->parent.unlock = (void (*)(fdb_db_t db))arg;
+#if __GNUC__
+#pragma GCC diagnostic pop
+#endif
         break;
     case FDB_TSDB_CTRL_SET_ROLLOVER:
         /* this change MUST after database initialized */
