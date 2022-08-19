@@ -1485,7 +1485,7 @@ static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
 #ifdef FDB_KV_USING_CACHE
         /* update the cache when first load. If caching is disabled, this step is not performed */
         update_kv_cache(db, kv->name, kv->name_len, kv->addr.start);
-#endif        
+#endif
     }
 
     return false;
