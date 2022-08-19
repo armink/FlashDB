@@ -27,8 +27,8 @@
 #error "Please configure flash write granularity (in fdb_cfg.h)"
 #endif
 
-#if FDB_WRITE_GRAN != 1 && FDB_WRITE_GRAN != 8 && FDB_WRITE_GRAN != 32
-#error "the write gran can be only setting as 1, 8 and 32"
+#if FDB_WRITE_GRAN != 1 && FDB_WRITE_GRAN != 8 && FDB_WRITE_GRAN != 32 && FDB_WRITE_GRAN != 64
+#error "the write gran can be only setting as 1, 8, 32 and 64"
 #endif
 
 /* magic word(`F`, `D`, `B`, `1`) */
@@ -706,7 +706,7 @@ static fdb_err_t write_kv_hdr(fdb_kvdb_t db, uint32_t addr, kv_hdr_data_t kv_hdr
         return result;
     }
     /* write other header data */
-    result = _fdb_flash_write((fdb_db_t)db, addr + KV_MAGIC_OFFSET, &kv_hdr->magic, sizeof(struct kv_hdr_data) - KV_MAGIC_OFFSET, false);
+    result = _fdb_flash_write((fdb_db_t)db, addr + KV_MAGIC_OFFSET, &kv_hdr->magic, KV_HDR_DATA_SIZE - KV_MAGIC_OFFSET, false);
 
     return result;
 }
@@ -1482,10 +1482,8 @@ static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
         _fdb_write_status((fdb_db_t)db, kv->addr.start, status_table, FDB_KV_STATUS_NUM, FDB_KV_ERR_HDR, true);
         return true;
     } else if (kv->crc_is_ok && kv->status == FDB_KV_WRITE) {
-#ifdef FDB_KV_USING_CACHE
-        /* update the cache when first load. If caching is disabled, this step is not performed */
+        /* update the cache when first load */
         update_kv_cache(db, kv->name, kv->name_len, kv->addr.start);
-#endif
     }
 
     return false;
