@@ -686,7 +686,7 @@ char *fdb_kv_get(fdb_kvdb_t db, const char *key)
             value[get_size] = '\0';
             return value;
         } else if (blob.saved.len > FDB_STR_KV_VALUE_MAX_SIZE) {
-            FDB_INFO("Warning: The default string KV value buffer length (%d) is too less (%u).\n", FDB_STR_KV_VALUE_MAX_SIZE,
+            FDB_INFO("Warning: The default string KV value buffer length (%" PRIdLEAST16 ") is too less (%" PRIu32 ").\n", FDB_STR_KV_VALUE_MAX_SIZE,
                     (uint32_t)blob.saved.len);
         } else {
             FDB_INFO("Warning: The KV value isn't string. Could not be returned\n");
@@ -975,12 +975,12 @@ __retry:
 
     if ((empty_kv = alloc_kv(db, sector, kv_size)) == FAILED_ADDR) {
         if (db->gc_request && !already_gc) {
-            FDB_DEBUG("Warning: Alloc an KV (size %u) failed when new KV. Now will GC then retry.\n", (uint32_t)kv_size);
+            FDB_DEBUG("Warning: Alloc an KV (size %" PRIu32 ") failed when new KV. Now will GC then retry.\n", (uint32_t)kv_size);
             gc_collect(db);
             already_gc = true;
             goto __retry;
         } else if (already_gc) {
-            FDB_DEBUG("Error: Alloc an KV (size %u) failed after GC. KV full.\n", kv_size);
+            FDB_DEBUG("Error: Alloc an KV (size %" PRIuLEAST16 ") failed after GC. KV full.\n", kv_size);
             db->gc_request = false;
         }
     }
@@ -1048,7 +1048,7 @@ static void gc_collect(fdb_kvdb_t db)
     sector_iterator(db, &sector, FDB_SECTOR_STORE_EMPTY, &empty_sec, NULL, gc_check_cb, false);
 
     /* do GC collect */
-    FDB_DEBUG("The remain empty sector is %u, GC threshold is %d.\n", (uint32_t)empty_sec, FDB_GC_EMPTY_SEC_THRESHOLD);
+    FDB_DEBUG("The remain empty sector is %" PRIu32 ", GC threshold is %" PRIdLEAST16 ".\n", (uint32_t)empty_sec, FDB_GC_EMPTY_SEC_THRESHOLD);
     if (empty_sec <= FDB_GC_EMPTY_SEC_THRESHOLD) {
         sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, db, NULL, do_gc, false);
     }
@@ -1385,7 +1385,7 @@ void fdb_kv_print(fdb_kvdb_t db)
     kv_iterator(db, &kv, &using_size, db, print_kv_cb);
 
     FDB_PRINT("\nmode: next generation\n");
-    FDB_PRINT("size: %u/%u bytes.\n", (uint32_t)using_size + ((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE),
+    FDB_PRINT("size: %" PRIu32 "/%" PRIu32 " bytes.\n", (uint32_t)using_size + ((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE),
             db_max_size(db) - db_sec_size(db) * FDB_GC_EMPTY_SEC_THRESHOLD);
 
     /* unlock the KV cache */
@@ -1559,10 +1559,24 @@ void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
         *(uint32_t *)arg = db->parent.sec_size;
         break;
     case FDB_KVDB_CTRL_SET_LOCK:
+#if !defined(__ARMCC_VERSION) && defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
         db->parent.lock = (void (*)(fdb_db_t db))arg;
+#if !defined(__ARMCC_VERSION) && defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
         break;
     case FDB_KVDB_CTRL_SET_UNLOCK:
+#if !defined(__ARMCC_VERSION) && defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
         db->parent.unlock = (void (*)(fdb_db_t db))arg;
+#if !defined(__ARMCC_VERSION) && defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
         break;
     case FDB_KVDB_CTRL_SET_FILE_MODE:
 #ifdef FDB_USING_FILE_MODE
@@ -1637,7 +1651,7 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
     }
 #endif /* FDB_KV_USING_CACHE */
 
-    FDB_DEBUG("KVDB size is %u bytes.\n", db_max_size(db));
+    FDB_DEBUG("KVDB size is %" PRIu32 " bytes.\n", db_max_size(db));
 
     result = _fdb_kv_load(db);
 
