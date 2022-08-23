@@ -1564,17 +1564,17 @@ void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
         db->parent.lock = (void (*)(fdb_db_t db))arg;
-#if __GNUC__    
+#if !defined(__ARMCC_VERSION) && defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
         break;
     case FDB_KVDB_CTRL_SET_UNLOCK:
-#if __GNUC__
+#if !defined(__ARMCC_VERSION) && defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
         db->parent.unlock = (void (*)(fdb_db_t db))arg;
-#if __GNUC__    
+#if !defined(__ARMCC_VERSION) && defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
         break;
