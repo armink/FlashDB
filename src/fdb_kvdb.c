@@ -1559,7 +1559,7 @@ void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
         *(uint32_t *)arg = db->parent.sec_size;
         break;
     case FDB_KVDB_CTRL_SET_LOCK:
-#if __GNUC__
+#if !defined(__ARMCC_VERSION) && defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
