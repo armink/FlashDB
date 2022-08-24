@@ -27,8 +27,8 @@
 #error "Please configure flash write granularity (in fdb_cfg.h)"
 #endif
 
-#if FDB_WRITE_GRAN != 1 && FDB_WRITE_GRAN != 8 && FDB_WRITE_GRAN != 32
-#error "the write gran can be only setting as 1, 8 and 32"
+#if FDB_WRITE_GRAN != 1 && FDB_WRITE_GRAN != 8 && FDB_WRITE_GRAN != 32 && FDB_WRITE_GRAN != 64
+#error "the write gran can be only setting as 1, 8, 32 and 64"
 #endif
 
 /* magic word(`F`, `D`, `B`, `1`) */
@@ -706,7 +706,7 @@ static fdb_err_t write_kv_hdr(fdb_kvdb_t db, uint32_t addr, kv_hdr_data_t kv_hdr
         return result;
     }
     /* write other header data */
-    result = _fdb_flash_write((fdb_db_t)db, addr + KV_MAGIC_OFFSET, &kv_hdr->magic, sizeof(struct kv_hdr_data) - KV_MAGIC_OFFSET, false);
+    result = _fdb_flash_write((fdb_db_t)db, addr + KV_MAGIC_OFFSET, &kv_hdr->magic, KV_HDR_DATA_SIZE - KV_MAGIC_OFFSET, false);
 
     return result;
 }
