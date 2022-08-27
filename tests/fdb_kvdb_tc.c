@@ -34,10 +34,24 @@ static struct fdb_kvdb test_kvdb;
 
 static void test_fdb_kvdb_init(void)
 {
+    if (access("/fdb_kvdb1", 0) < 0)
+    {
+        mkdir("/fdb_kvdb1", 0);
+    }
     struct fdb_default_kv default_kv;
+#ifndef FDB_USING_FAL_MODE    
+    uint32_t sec_size = 4096, db_size = sec_size * 16;
+    rt_bool_t file_mode = true;
+#endif      
 
     default_kv.kvs = default_kv_set;
     default_kv.num = sizeof(default_kv_set) / sizeof(default_kv_set[0]);
+
+ #ifndef FDB_USING_FAL_MODE
+    fdb_kvdb_control(&(test_kvdb), FDB_KVDB_CTRL_SET_SEC_SIZE, &sec_size);
+    fdb_kvdb_control(&(test_kvdb), FDB_KVDB_CTRL_SET_FILE_MODE, &file_mode);
+    fdb_kvdb_control(&(test_kvdb), FDB_KVDB_CTRL_SET_MAX_SIZE, &db_size);
+#endif    
     uassert_true(fdb_kvdb_init(&test_kvdb, "test_kv", "fdb_kvdb1", &default_kv, NULL) == FDB_NO_ERR);
 }
 
@@ -162,6 +176,11 @@ static void test_fdb_del_kv(void)
     uassert_null(read_value);
 }
 
+static void test_fdb_kvdb_deinit(void)
+{
+    uassert_true(fdb_kvdb_deinit(&test_kvdb) == FDB_NO_ERR);
+}
+
 static rt_err_t utest_tc_init(void)
 {
     return RT_EOK;
@@ -181,6 +200,7 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_create_kv);
     UTEST_UNIT_RUN(test_fdb_change_kv);
     UTEST_UNIT_RUN(test_fdb_del_kv);
+    UTEST_UNIT_RUN(test_fdb_kvdb_deinit);
 }
 UTEST_TC_EXPORT(testcase, "packages.tools.flashdb.kvdb", utest_tc_init, utest_tc_cleanup, 20);
 
