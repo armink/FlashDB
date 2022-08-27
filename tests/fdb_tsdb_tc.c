@@ -224,12 +224,23 @@ static void test_tsdb_data_by_time(fdb_time_t from, fdb_time_t to)
 {
     rt_slist_t tsl_list;
     rt_slist_init(&tsl_list);
-    fdb_time_t cur_time = from;
+    fdb_time_t i, cur_time = from, valid_to = to;
+    uint32_t tsl_num, j;
 
-    if (from <= to && from < test_db_start_time) {
-        cur_time = test_db_start_time;
-    } else if (from > to && from > test_db_end_time) {
-        cur_time = test_db_end_time;
+    if (from <= to) {
+        if (from < test_db_start_time) {
+            cur_time = test_db_start_time;
+        }
+        if (to > test_db_end_time) {
+            valid_to = test_db_end_time;
+        }
+    } else {
+        if (from > test_db_end_time) {
+            cur_time = test_db_end_time;
+        }
+        if (to < test_db_start_time) {
+            valid_to = test_db_start_time;
+        }
     }
 
     fdb_tsl_iter_by_time(&test_tsdb, from, to, query_cb, &tsl_list);
@@ -237,6 +248,23 @@ static void test_tsdb_data_by_time(fdb_time_t from, fdb_time_t to)
     struct test_tls_data *tls;
     rt_slist_t* node = RT_NULL;
 
+    tsl_num = rt_slist_len(&tsl_list);
+    /* check the tsl number */
+    if (from <= to) {
+        for (i = cur_time, j = 0; i <= valid_to; i++) {
+            if (i % TEST_TIME_STEP == 0) {
+                j++;
+            }
+        }
+    } else {
+        for (i = cur_time, j = 0; i >= valid_to; i--) {
+            if (i % TEST_TIME_STEP == 0) {
+                j++;
+            }
+        }
+    }
+    uassert_true(tsl_num == j);
+    /* check the tsl time */
     rt_slist_for_each(node, &tsl_list)
     {
         tls = rt_slist_entry(node, struct test_tls_data, list);
@@ -249,17 +277,14 @@ static void test_tsdb_data_by_time(fdb_time_t from, fdb_time_t to)
         }
         rt_free(tls);
     }
-    /* check the last tsl */
-    if (from <= to) {
-        if (to > test_db_end_time) {
-            to = test_db_end_time;
+
+    if (tsl_num > 0) {
+        /* check the last tsl */
+        if (from <= to) {
+            uassert_true(tls->time == RT_ALIGN_DOWN(valid_to, TEST_TIME_STEP));
+        } else {
+            uassert_true(tls->time == RT_ALIGN(valid_to, TEST_TIME_STEP));
         }
-        uassert_true(tls->time == RT_ALIGN_DOWN(to, TEST_TIME_STEP));
-    } else {
-        if (to < test_db_start_time) {
-            to = test_db_start_time;
-        }
-        uassert_true(tls->time == RT_ALIGN(to, TEST_TIME_STEP));
     }
 }
 
@@ -285,6 +310,10 @@ static void test_fdb_tsl_iter_by_time_1(void)
     uassert_true(test_secs_info[2].start_time != 0x7FFFFFFF);
     /* check the database bound */
     test_tsdb_data_by_time(test_db_start_time - 1, test_db_end_time + 1);
+    test_tsdb_data_by_time(test_db_start_time - 2, test_db_start_time - 1);
+    test_tsdb_data_by_time(test_db_start_time - 1, test_db_start_time - 2);
+    test_tsdb_data_by_time(test_db_end_time + 1, test_db_end_time + 2);
+    test_tsdb_data_by_time(test_db_end_time + 2, test_db_end_time + 1);
 
     /* check 1st sector */
     test_tsdb_data_by_time(test_secs_info[0].start_time - 1, test_secs_info[0].end_time);
@@ -319,7 +348,6 @@ static void test_fdb_tsl_iter_by_time_1(void)
     test_tsdb_data_by_time(test_secs_info[0].start_time, test_secs_info[0].end_time);
     test_tsdb_data_by_time(test_secs_info[0].end_time, test_secs_info[0].start_time);
 
-
     /* check 1~2 sector */
     test_tsdb_data_by_time(test_secs_info[0].start_time - 1, test_secs_info[1].end_time);
     test_tsdb_data_by_time(test_secs_info[0].start_time + 1, test_secs_info[1].end_time);
@@ -327,7 +355,6 @@ static void test_fdb_tsl_iter_by_time_1(void)
     test_tsdb_data_by_time(test_secs_info[1].end_time + 1, test_secs_info[0].start_time);
     test_tsdb_data_by_time(test_secs_info[1].end_time - 1, test_secs_info[0].start_time);
     test_tsdb_data_by_time(test_secs_info[1].start_time - 1, test_secs_info[0].start_time);
-
 
     /* check more than 2 sectors */
     test_tsdb_data_by_time(test_secs_info[0].start_time - 1, test_secs_info[2].end_time);
