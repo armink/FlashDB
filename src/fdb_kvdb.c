@@ -218,7 +218,7 @@ static bool get_kv_from_cache(fdb_kvdb_t db, const char *name, size_t name_len, 
 
     for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
         if ((db->kv_cache_table[i].addr != FDB_DATA_UNUSED) && (db->kv_cache_table[i].name_crc == name_crc)) {
-            char saved_name[FDB_KV_NAME_MAX];
+            char saved_name[FDB_KV_NAME_MAX] = { 0 };
             /* read the KV name in flash */
             _fdb_flash_read((fdb_db_t)db, db->kv_cache_table[i].addr + KV_HDR_DATA_SIZE, (uint32_t *) saved_name, FDB_KV_NAME_MAX);
             if (!strncmp(name, saved_name, name_len)) {
@@ -295,7 +295,7 @@ static uint32_t get_next_kv_addr(fdb_kvdb_t db, kv_sec_info_t sector, fdb_kv_t p
             addr = find_next_kv_addr(db, addr, sector->addr + db_sec_size(db) - SECTOR_HDR_DATA_SIZE);
 
             if (addr > sector->addr + db_sec_size(db) || pre_kv->len == 0) {
-                //TODO 扇区连续模式
+                //TODO Sector continuous mode
                 return FAILED_ADDR;
             }
         } else {
@@ -330,7 +330,7 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
         kv->crc_is_ok = false;
         return FDB_READ_ERR;
     } else if (kv->len > db_sec_size(db) - SECTOR_HDR_DATA_SIZE && kv->len < db_max_size(db)) {
-        //TODO 扇区连续模式，或者写入长度没有写入完整
+        //TODO Sector continuous mode, or the write length is not written completely
         FDB_ASSERT(0);
     }
 
@@ -1478,7 +1478,7 @@ static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
     } else if (kv->status == FDB_KV_PRE_WRITE) {
         uint8_t status_table[KV_STATUS_TABLE_SIZE];
         /* the KV has not write finish, change the status to error */
-        //TODO 绘制异常处理的状态装换图
+        //TODO Draw the state replacement diagram of exception handling
         _fdb_write_status((fdb_db_t)db, kv->addr.start, status_table, FDB_KV_STATUS_NUM, FDB_KV_ERR_HDR, true);
         return true;
     } else if (kv->crc_is_ok && kv->status == FDB_KV_WRITE) {
