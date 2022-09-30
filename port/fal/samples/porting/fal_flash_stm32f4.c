@@ -182,12 +182,14 @@ static int write(long offset, const uint8_t *buf, size_t size)
         {
             if (*(uint8_t *) addr != *buf)
             {
-                return -1;
+            	size = -1;
+            	break;
             }
         }
         else
         {
-            return -1;
+        	size = -1;
+        	break;
         }
     }
 
@@ -221,7 +223,7 @@ static int erase(long offset, size_t size)
 
     if (HAL_FLASHEx_Erase(&EraseInitStruct, (uint32_t *) &SECTORError) != HAL_OK)
     {
-        return -1;
+    	size = -1;
     }
 
     HAL_FLASH_Lock();
