@@ -337,7 +337,7 @@ According to the time range, traverse the entire TSDB and execute iterative call
 | Parameters | Description |
 | ------ | --------------------------------------- |
 | db | Database Objects |
-| from | Start timestamp. It will be a reverse iterator when ending timestap less than starting timestap |
+| from | Start timestamp. It will be a reverse iterator when ending timestamp less than starting timestamp |
 | to | End timestamp |
 | cb | Callback function, which will be executed every time the TSL is traversed |
 | cb_arg | Parameters of the callback function |
