@@ -16,7 +16,6 @@
 #define FAL_PART_MAGIC_WORD         0x45503130
 #define FAL_PART_MAGIC_WORD_H       0x4550L
 #define FAL_PART_MAGIC_WORD_L       0x3130L
-#define FAL_PART_MAGIC_WROD         0x45503130
 
 struct part_flash_info
 {
