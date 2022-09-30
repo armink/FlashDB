@@ -573,8 +573,8 @@ static int search_start_tsl_addr(fdb_tsdb_t db, int start, int end, fdb_time_t f
  * The TSDB iterator for each TSL by timestamp.
  *
  * @param db database object
- * @param from starting timestap. It will be a reverse iterator when ending timestap less than starting timestap
- * @param to ending timestap
+ * @param from starting timestamp. It will be a reverse iterator when ending timestamp less than starting timestamp
+ * @param to ending timestamp
  * @param cb callback
  * @param arg callback argument
  */
@@ -673,8 +673,8 @@ static bool query_count_cb(fdb_tsl_t tsl, void *arg)
  * Query some TSL's count by timestamp and status.
  *
  * @param db database object
- * @param from starting timestap
- * @param to ending timestap
+ * @param from starting timestamp
+ * @param to ending timestamp
  * @param status status
  */
 size_t fdb_tsl_query_count(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl_status_t status)
