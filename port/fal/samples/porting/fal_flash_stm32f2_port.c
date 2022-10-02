@@ -146,6 +146,7 @@ static int write(long offset, const uint8_t *buf, size_t size)
         /* check data */
         if (read_data != *buf)
         {
+            FLASH_Lock();
             return -1;
         }
     }
@@ -173,6 +174,7 @@ static int erase(long offset, size_t size)
         flash_status = FLASH_EraseSector(cur_erase_sector, VoltageRange_3);
         if (flash_status != FLASH_COMPLETE)
         {
+            FLASH_Lock();
             return -1;
         }
         erased_size += stm32_get_sector_size(cur_erase_sector);
