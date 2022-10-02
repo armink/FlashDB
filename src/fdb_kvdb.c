@@ -1404,7 +1404,7 @@ static void kv_auto_update(fdb_kvdb_t db)
         /* check version number */
         if (saved_ver_num != setting_ver_num) {
             size_t i, value_len;
-            FDB_DEBUG("Update the KV from version %u to %u.\n", (uint32_t)saved_ver_num, (uint32_t)setting_ver_num);
+            FDB_DEBUG("Update the KV from version %zu to %zu.\n", saved_ver_num, setting_ver_num);
             for (i = 0; i < db->default_kvs.num; i++) {
                 /* add a new KV when it's not found */
                 if (!find_kv(db, db->default_kvs.kvs[i].key, &db->cur_kv)) {
