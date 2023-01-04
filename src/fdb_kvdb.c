@@ -315,7 +315,7 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
     fdb_err_t result = FDB_NO_ERR;
     size_t len, size;
     /* read KV header raw data */
-    _fdb_flash_read((fdb_db_t)db, kv->addr.start, (uint32_t *)&kv_hdr, sizeof(struct kv_hdr_data));
+    _fdb_flash_read((fdb_db_t)db, kv->addr.start, (uint32_t *)&kv_hdr, KV_HDR_DATA_SIZE);
     kv->status = (fdb_kv_status_t) _fdb_get_status(kv_hdr.status_table, FDB_KV_STATUS_NUM);
     kv->len = kv_hdr.len;
 
@@ -378,7 +378,7 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
     FDB_ASSERT(sector);
 
     /* read sector header raw data */
-    _fdb_flash_read((fdb_db_t)db, addr, (uint32_t *)&sec_hdr, sizeof(struct sector_hdr_data));
+    _fdb_flash_read((fdb_db_t)db, addr, (uint32_t *)&sec_hdr, SECTOR_HDR_DATA_SIZE);
 
     sector->addr = addr;
     sector->magic = sec_hdr.magic;
@@ -721,14 +721,14 @@ static fdb_err_t format_sector(fdb_kvdb_t db, uint32_t addr, uint32_t combined_v
     result = _fdb_flash_erase((fdb_db_t)db, addr, db_sec_size(db));
     if (result == FDB_NO_ERR) {
         /* initialize the header data */
-        memset(&sec_hdr, 0xFF, sizeof(struct sector_hdr_data));
+        memset(&sec_hdr, 0xFF, SECTOR_HDR_DATA_SIZE);
         _fdb_set_status(sec_hdr.status_table.store, FDB_SECTOR_STORE_STATUS_NUM, FDB_SECTOR_STORE_EMPTY);
         _fdb_set_status(sec_hdr.status_table.dirty, FDB_SECTOR_DIRTY_STATUS_NUM, FDB_SECTOR_DIRTY_FALSE);
         sec_hdr.magic = SECTOR_MAGIC_WORD;
         sec_hdr.combined = combined_value;
         sec_hdr.reserved = 0xFFFFFFFF;
         /* save the header */
-        result = _fdb_flash_write((fdb_db_t)db, addr, (uint32_t *)&sec_hdr, sizeof(struct sector_hdr_data), true);
+        result = _fdb_flash_write((fdb_db_t)db, addr, (uint32_t *)&sec_hdr, SECTOR_HDR_DATA_SIZE, true);
 
 #ifdef FDB_KV_USING_CACHE
         /* delete the sector cache */
@@ -1094,7 +1094,7 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
         return FDB_KV_NAME_ERR;
     }
 
-    memset(&kv_hdr, 0xFF, sizeof(struct kv_hdr_data));
+    memset(&kv_hdr, 0xFF, KV_HDR_DATA_SIZE);
     kv_hdr.magic = KV_MAGIC_WORD;
     kv_hdr.name_len = strlen(key);
     kv_hdr.value_len = len;
