@@ -98,14 +98,18 @@ size_t _fdb_set_status(uint8_t status_table[], size_t status_num, size_t status_
      * |    8bit    | 0xFFFF              | 0x00FF              |  0x0000              |
      * |   32bit    | 0xFFFFFFFF FFFFFFFF | 0x00FFFFFF FFFFFFFF |  0x00FFFFFF 00FFFFFF |
      */
-    memset(status_table, 0xFF, FDB_STATUS_TABLE_SIZE(status_num));
+    memset(status_table, FDB_BYTE_ERASED, FDB_STATUS_TABLE_SIZE(status_num));
     if (status_index > 0) {
 #if (FDB_WRITE_GRAN == 1)
         byte_index = (status_index - 1) / 8;
+#if (FDB_BYTE_ERASED == 0xFF)
         status_table[byte_index] &= (0x00ff >> (status_index % 8));
 #else
+        status_table[byte_index] |= (0x00ff >> (status_index % 8));
+#endif
+#else
         byte_index = (status_index - 1) * (FDB_WRITE_GRAN / 8);
-        status_table[byte_index] = 0x00;
+        status_table[byte_index] = FDB_BYTE_WRITTEN;
 #endif /* FDB_WRITE_GRAN == 1 */
     }
 
@@ -123,7 +127,7 @@ size_t _fdb_get_status(uint8_t status_table[], size_t status_num)
             break;
         }
 #else /*  (FDB_WRITE_GRAN == 8) ||  (FDB_WRITE_GRAN == 32) ||  (FDB_WRITE_GRAN == 64) */
-        if (status_table[status_num * FDB_WRITE_GRAN / 8] == 0x00) {
+        if (status_table[status_num * FDB_WRITE_GRAN / 8] == FDB_BYTE_WRITTEN) {
             break;
         }
 #endif /* FDB_WRITE_GRAN == 1 */
@@ -173,7 +177,7 @@ size_t _fdb_read_status(fdb_db_t db, uint32_t addr, uint8_t status_table[], size
  */
 uint32_t _fdb_continue_ff_addr(fdb_db_t db, uint32_t start, uint32_t end)
 {
-    uint8_t buf[32], last_data = 0x00;
+    uint8_t buf[32], last_data = FDB_BYTE_WRITTEN;
     size_t i, addr = start, read_size;
 
     for (; start < end; start += sizeof(buf)) {
@@ -184,14 +188,14 @@ uint32_t _fdb_continue_ff_addr(fdb_db_t db, uint32_t start, uint32_t end)
         }
         _fdb_flash_read(db, start, (uint32_t *) buf, read_size);
         for (i = 0; i < read_size; i++) {
-            if (last_data != 0xFF && buf[i] == 0xFF) {
+            if (last_data != FDB_BYTE_ERASED && buf[i] == FDB_BYTE_ERASED) {
                 addr = start + i;
             }
             last_data = buf[i];
         }
     }
 
-    if (last_data == 0xFF) {
+    if (last_data == FDB_BYTE_ERASED) {
         return FDB_WG_ALIGN(addr);
     } else {
         return end;

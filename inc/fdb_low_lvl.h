@@ -21,6 +21,11 @@
 #define FDB_STATUS_TABLE_SIZE(status_number)       (((status_number - 1) * FDB_WRITE_GRAN + 7)/8)
 #endif
 
+/* the data is erased */
+#define FDB_BYTE_ERASED                           0xFF
+/* the data is written */
+#define FDB_BYTE_WRITTEN                          0x00
+
 /* Return the most contiguous size aligned at specified width. RT_ALIGN(13, 4)
  * would return 16.
  */
@@ -39,7 +44,11 @@
 #define FDB_DIRTY_STATUS_TABLE_SIZE               FDB_STATUS_TABLE_SIZE(FDB_SECTOR_DIRTY_STATUS_NUM)
 
 /* the data is unused */
-#define FDB_DATA_UNUSED                           0xFFFFFFFF
+#if (FDB_BYTE_ERASED  == 0xFF)
+#define FDB_DATA_UNUSED                      0xFFFFFFFF
+#else
+#define FDB_DATA_UNUSED                      0x00000000
+#endif
 
 fdb_err_t _fdb_kv_load(fdb_kvdb_t db);
 size_t _fdb_set_status(uint8_t status_table[], size_t status_num, size_t status_index);
