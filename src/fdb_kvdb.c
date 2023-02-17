@@ -56,7 +56,11 @@
 #endif
 
 /* the sector is not combined value */
+#if (FDB_BYTE_ERASED  == 0xFF)
 #define SECTOR_NOT_COMBINED                      0xFFFFFFFF
+#else
+#define SECTOR_NOT_COMBINED                      0x00000000
+#endif
 /* the next address is get failed */
 #define FAILED_ADDR                              0xFFFFFFFF
 
@@ -721,12 +725,12 @@ static fdb_err_t format_sector(fdb_kvdb_t db, uint32_t addr, uint32_t combined_v
     result = _fdb_flash_erase((fdb_db_t)db, addr, db_sec_size(db));
     if (result == FDB_NO_ERR) {
         /* initialize the header data */
-        memset(&sec_hdr, 0xFF, SECTOR_HDR_DATA_SIZE);
+        memset(&sec_hdr, FDB_BYTE_ERASED, SECTOR_HDR_DATA_SIZE);
         _fdb_set_status(sec_hdr.status_table.store, FDB_SECTOR_STORE_STATUS_NUM, FDB_SECTOR_STORE_EMPTY);
         _fdb_set_status(sec_hdr.status_table.dirty, FDB_SECTOR_DIRTY_STATUS_NUM, FDB_SECTOR_DIRTY_FALSE);
         sec_hdr.magic = SECTOR_MAGIC_WORD;
         sec_hdr.combined = combined_value;
-        sec_hdr.reserved = 0xFFFFFFFF;
+        sec_hdr.reserved = FDB_DATA_UNUSED;
         /* save the header */
         result = _fdb_flash_write((fdb_db_t)db, addr, (uint32_t *)&sec_hdr, SECTOR_HDR_DATA_SIZE, true);
 
@@ -1070,7 +1074,7 @@ static fdb_err_t align_write(fdb_kvdb_t db, uint32_t addr, const uint32_t *buf, 
     size_t align_data_size = 1;
 #endif
 
-    memset(align_data, 0xFF, align_data_size);
+    memset(align_data, FDB_BYTE_ERASED, align_data_size);
     result = _fdb_flash_write((fdb_db_t)db, addr, buf, FDB_WG_ALIGN_DOWN(size), false);
 
     align_remain = size - FDB_WG_ALIGN_DOWN(size);
@@ -1094,7 +1098,7 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
         return FDB_KV_NAME_ERR;
     }
 
-    memset(&kv_hdr, 0xFF, KV_HDR_DATA_SIZE);
+    memset(&kv_hdr, FDB_BYTE_ERASED, KV_HDR_DATA_SIZE);
     kv_hdr.magic = KV_MAGIC_WORD;
     kv_hdr.name_len = strlen(key);
     kv_hdr.value_len = len;
@@ -1112,7 +1116,7 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
             result = update_sec_status(db, sector, kv_hdr.len, &is_full);
         }
         if (result == FDB_NO_ERR) {
-            uint8_t ff = 0xFF;
+            uint8_t ff = FDB_BYTE_ERASED;
             /* start calculate CRC32 */
             kv_hdr.crc32 = fdb_calc_crc32(0, &kv_hdr.name_len, KV_HDR_DATA_SIZE - KV_NAME_LEN_OFFSET);
             kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, key, kv_hdr.name_len);
