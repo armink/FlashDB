@@ -69,7 +69,9 @@
 #define SECTOR_NUM                               (db_max_size(db) / db_sec_size(db))
 
 #define SECTOR_HDR_DATA_SIZE                     (FDB_WG_ALIGN(sizeof(struct sector_hdr_data)))
+#define SECTOR_STORE_OFFSET                      ((unsigned long)(&((struct sector_hdr_data *)0)->status_table.store))
 #define SECTOR_DIRTY_OFFSET                      ((unsigned long)(&((struct sector_hdr_data *)0)->status_table.dirty))
+#define SECTOR_MAGIC_OFFSET                      ((unsigned long)(&((struct sector_hdr_data *)0)->magic))
 #define KV_HDR_DATA_SIZE                         (FDB_WG_ALIGN(sizeof(struct kv_hdr_data)))
 #define KV_MAGIC_OFFSET                          ((unsigned long)(&((struct kv_hdr_data *)0)->magic))
 #define KV_LEN_OFFSET                            ((unsigned long)(&((struct kv_hdr_data *)0)->len))
@@ -726,6 +728,7 @@ static fdb_err_t format_sector(fdb_kvdb_t db, uint32_t addr, uint32_t combined_v
     if (result == FDB_NO_ERR) {
         /* initialize the header data */
         memset(&sec_hdr, FDB_BYTE_ERASED, SECTOR_HDR_DATA_SIZE);
+#if (FDB_WRITE_GRAN == 1)
         _fdb_set_status(sec_hdr.status_table.store, FDB_SECTOR_STORE_STATUS_NUM, FDB_SECTOR_STORE_EMPTY);
         _fdb_set_status(sec_hdr.status_table.dirty, FDB_SECTOR_DIRTY_STATUS_NUM, FDB_SECTOR_DIRTY_FALSE);
         sec_hdr.magic = SECTOR_MAGIC_WORD;
@@ -733,6 +736,34 @@ static fdb_err_t format_sector(fdb_kvdb_t db, uint32_t addr, uint32_t combined_v
         sec_hdr.reserved = FDB_DATA_UNUSED;
         /* save the header */
         result = _fdb_flash_write((fdb_db_t)db, addr, (uint32_t *)&sec_hdr, SECTOR_HDR_DATA_SIZE, true);
+#else   // seperate the whole "sec_hdr" program to serval sinle program operation to prevent re-program issue on STM32L4xx or
+        // other MCU internal flash
+        /* write the sector store status */
+        _fdb_write_status(db,
+                          addr + SECTOR_STORE_OFFSET,
+                          sec_hdr.status_table.store,
+                          FDB_SECTOR_STORE_STATUS_NUM,
+                          FDB_SECTOR_STORE_EMPTY,
+                          true);
+
+        /* write the sector dirty status */
+        _fdb_write_status(db,
+                          addr + SECTOR_DIRTY_OFFSET,
+                          sec_hdr.status_table.dirty,
+                          FDB_SECTOR_DIRTY_STATUS_NUM,
+                          FDB_SECTOR_DIRTY_FALSE,
+                          true);
+
+        /* write the magic word and combined next sector number */
+        sec_hdr.magic = SECTOR_MAGIC_WORD;
+        sec_hdr.combined = combined_value;
+        sec_hdr.reserved = FDB_DATA_UNUSED;
+        result = _fdb_flash_write(db,
+                                  addr + SECTOR_MAGIC_OFFSET,
+                                  (void *)(&(sec_hdr.magic)),
+                                  (SECTOR_HDR_DATA_SIZE - SECTOR_MAGIC_OFFSET),
+                                  true);
+#endif
 
 #ifdef FDB_KV_USING_CACHE
         /* delete the sector cache */
