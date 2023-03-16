@@ -801,6 +801,37 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
     } while ((sec_addr = get_next_sector_addr(db, sector)) != FAILED_ADDR);
 }
 
+static void sector_iterator_gc(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_store_status_t status, void *arg1, void *arg2,
+    bool(*callback)(kv_sec_info_t sector, void *arg1, void *arg2), bool traversal_kv)
+{
+    uint32_t sec_addr;
+
+    /* search all sectors */
+    sec_addr = db->oldest_addr;
+    do {
+        read_sector_info(db, sec_addr, sector, false);
+        if (status == FDB_SECTOR_STORE_UNUSED || status == sector->status.store) {
+            if (traversal_kv) {
+                read_sector_info(db, sec_addr, sector, true);
+            }
+            /* iterator is interrupted when callback return true */
+            if (callback && callback(sector, arg1, arg2)) {
+                sec_addr = get_next_sector_addr(db, sector);
+                /*sec_addr moves to db_max_size(db),roll back*/
+                if (sec_addr == FAILED_ADDR)
+                    db->oldest_addr = 0;
+                else
+                    db->oldest_addr = sec_addr;
+                return;
+            }
+        }
+        sec_addr = get_next_sector_addr(db, sector);
+        if (sec_addr == FAILED_ADDR) /*sec_addr moves to db_max_size(db),roll back*/
+            sec_addr = 0;
+
+    } while (sec_addr != db->oldest_addr);
+}
+
 static bool sector_statistics_cb(kv_sec_info_t sector, void *arg1, void *arg2)
 {
     size_t *empty_sector = arg1, *using_sector = arg2;
@@ -900,6 +931,8 @@ static fdb_err_t del_kv(fdb_kvdb_t db, const char *key, fdb_kv_t old_kv, bool co
 
         db->last_is_complete_del = false;
     }
+
+    db->oldest_addr = 0;
 
     dirty_status_addr = FDB_ALIGN_DOWN(old_kv->addr.start, db_sec_size(db)) + SECTOR_DIRTY_OFFSET;
     /* read and change the sector dirty status */
@@ -1061,7 +1094,7 @@ static void gc_collect_by_free_size(fdb_kvdb_t db, size_t free_size)
     /* do GC collect */
     FDB_DEBUG("The remain empty sector is %" PRIu32 ", GC threshold is %" PRIdLEAST16 ".\n", (uint32_t)empty_sec, FDB_GC_EMPTY_SEC_THRESHOLD);
     if (empty_sec <= FDB_GC_EMPTY_SEC_THRESHOLD) {
-        sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &arg, NULL, do_gc, false);
+        sector_iterator_gc(db, &sector, FDB_SECTOR_STORE_UNUSED, &arg, NULL, do_gc, false);
     }
 
     db->gc_request = false;
