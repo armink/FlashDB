@@ -984,7 +984,7 @@ __retry:
             already_gc = true;
             goto __retry;
         } else if (already_gc) {
-            FDB_DEBUG("Error: Alloc an KV (size %" PRIuLEAST16 ") failed after GC. KV full.\n", kv_size);
+            FDB_DEBUG("Error: Alloc an KV (size %ld" PRIuLEAST16 ") failed after GC. KV full.\n", kv_size);
             db->gc_request = false;
         }
     }
@@ -1389,7 +1389,7 @@ void fdb_kv_print(fdb_kvdb_t db)
     kv_iterator(db, &kv, &using_size, db, print_kv_cb);
 
     FDB_PRINT("\nmode: next generation\n");
-    FDB_PRINT("size: %" PRIu32 "/%" PRIu32 " bytes.\n", (uint32_t)using_size + ((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE),
+    FDB_PRINT("size: %ld" PRIu32 "/%" PRIu32 " bytes.\n", (uint32_t)using_size + ((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE),
             db_max_size(db) - db_sec_size(db) * FDB_GC_EMPTY_SEC_THRESHOLD);
 
     /* unlock the KV cache */
