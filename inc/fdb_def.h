@@ -301,7 +301,7 @@ struct fdb_kvdb {
 #ifdef FDB_KV_AUTO_UPDATE
     uint32_t ver_num;                            /**< setting version number for update */
 #endif
-    uint32_t oldest_addr;
+
     void *user_data;
 };
 typedef struct fdb_kvdb *fdb_kvdb_t;
@@ -337,4 +337,3 @@ typedef struct fdb_blob *fdb_blob_t;
 #endif
 
 #endif /* _FDB_DEF_H_ */
-
