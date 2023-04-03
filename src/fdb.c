@@ -72,6 +72,8 @@ fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *path, fdb_db_t
 #endif /* FDB_USING_FAL_MODE */
     }
 
+    /* the block size MUST to be the Nth power of 2 */
+    FDB_ASSERT((db->sec_size & (db->sec_size - 1)) == 0);
     /* must align with sector size */
     FDB_ASSERT(db->max_size % db->sec_size == 0);
     /* must have more than or equal 2 sector */
