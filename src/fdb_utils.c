@@ -92,11 +92,18 @@ size_t _fdb_set_status(uint8_t status_table[], size_t status_num, size_t status_
 {
     size_t byte_index = ~0UL;
     /*
-     * | write garn |       status0       |       status1       |      status2         |
-     * ---------------------------------------------------------------------------------
-     * |    1bit    | 0xFF                | 0x7F                |  0x3F                |
-     * |    8bit    | 0xFFFF              | 0x00FF              |  0x0000              |
-     * |   32bit    | 0xFFFFFFFF FFFFFFFF | 0x00FFFFFF FFFFFFFF |  0x00FFFFFF 00FFFFFF |
+     * | write garn |       status0       |       status1       |      status2         |       status3      |
+     * ------------------------------------------------------------------------------------------------------
+     * |    1bit    | 0xFF                | 0x7F                |  0x3F                |  0x1F
+     * ------------------------------------------------------------------------------------------------------
+     * |    8bit    | 0xFF FF FF          | 0x00 FF FF          |  0x00 00 FF          |  0x00 00 00
+     * ------------------------------------------------------------------------------------------------------
+     * |   32bit    | 0xFFFFFFFF FFFFFFFF | 0x00FFFFFF FFFFFFFF |  0x00FFFFFF 00FFFFFF |  0x00FFFFFF 00FFFFFF
+     * |            | 0xFFFFFFFF          | 0xFFFFFFFF          |  0xFFFFFFFF          |  0x00FFFFFF
+     * ------------------------------------------------------------------------------------------------------
+     * |            | 0xFFFFFFFF FFFFFFFF | 0x00FFFFFF FFFFFFFF |  0x00FFFFFF FFFFFFFF |  0x00FFFFFF FFFFFFFF
+     * |   64bit    | 0xFFFFFFFF FFFFFFFF | 0xFFFFFFFF FFFFFFFF |  0x00FFFFFF FFFFFFFF |  0x00FFFFFF FFFFFFFF
+     * |            | 0xFFFFFFFF FFFFFFFF | 0xFFFFFFFF FFFFFFFF |  0xFFFFFFFF FFFFFFFF |  0x00FFFFFF FFFFFFFF
      */
     memset(status_table, FDB_BYTE_ERASED, FDB_STATUS_TABLE_SIZE(status_num));
     if (status_index > 0) {
