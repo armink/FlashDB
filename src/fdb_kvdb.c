@@ -727,7 +727,7 @@ static fdb_err_t format_sector(fdb_kvdb_t db, uint32_t addr, uint32_t combined_v
     result = _fdb_flash_erase((fdb_db_t)db, addr, db_sec_size(db));
     if (result == FDB_NO_ERR) {
         /* initialize the header data */
-        memset(&sec_hdr, FDB_BYTE_ERASED, SECTOR_HDR_DATA_SIZE);
+        memset(&sec_hdr, FDB_BYTE_ERASED, sizeof(struct sector_hdr_data));
 #if (FDB_WRITE_GRAN == 1)
         _fdb_set_status(sec_hdr.status_table.store, FDB_SECTOR_STORE_STATUS_NUM, FDB_SECTOR_STORE_EMPTY);
         _fdb_set_status(sec_hdr.status_table.dirty, FDB_SECTOR_DIRTY_STATUS_NUM, FDB_SECTOR_DIRTY_FALSE);
