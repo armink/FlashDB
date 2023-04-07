@@ -65,7 +65,7 @@ extern "C" {
 #define FDB_ASSERT(EXPR)                                                      \
 if (!(EXPR))                                                                  \
 {                                                                             \
-    FDB_DEBUG("(%s) has assert failed at %s.\n", #EXPR, __func__);            \
+    FDB_INFO("(%s) has assert failed at %s.\n", #EXPR, __func__);             \
     while (1);                                                                \
 }
 
@@ -337,4 +337,3 @@ typedef struct fdb_blob *fdb_blob_t;
 #endif
 
 #endif /* _FDB_DEF_H_ */
-
