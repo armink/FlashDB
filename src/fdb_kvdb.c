@@ -1073,7 +1073,7 @@ static void gc_collect_by_free_size(fdb_kvdb_t db, size_t free_size)
     /* do GC collect */
     FDB_DEBUG("The remain empty sector is %" PRIu32 ", GC threshold is %" PRIdLEAST16 ".\n", (uint32_t)empty_sec, FDB_GC_EMPTY_SEC_THRESHOLD);
     if (empty_sec <= FDB_GC_EMPTY_SEC_THRESHOLD) {
-        sector_iterator_gc(db, &sector, FDB_SECTOR_STORE_UNUSED, &arg, NULL, do_gc, false);
+        sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &arg, NULL, do_gc, false);
     }
 
     db->gc_request = false;
