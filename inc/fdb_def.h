@@ -290,6 +290,7 @@ struct fdb_kvdb {
     struct fdb_kv cur_kv;
     struct kvdb_sec_info cur_sector;
     bool last_is_complete_del;
+    uint32_t last_using_addr;                    /**< limit allocs to sectors beyond this address */
 
 #ifdef FDB_KV_USING_CACHE
     /* KV cache table */

@@ -44,6 +44,9 @@
 /* log print macro. default EF_PRINT macro is printf() */
 /* #define FDB_PRINT(...)              my_printf(__VA_ARGS__) */
 
+/* allocate flash sectors in circular pattern */
+#define FDB_CIRCULAR_ALLOC
+
 /* print debug information */
 #define FDB_DEBUG_ENABLE
 
