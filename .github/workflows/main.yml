@@ -29,5 +29,5 @@ jobs:
         scons -j$(nproc) -C $TEST_BSP_ROOT
     - name: Start test
       run: |
-        python3 qemu_runner.py --elf $TEST_BSP_ROOT/rtthread.elf --sd $TEST_BSP_ROOT/sd.bin
+        python3 $UTEST_RUNNER_PATH/qemu_runner.py --elf $TEST_BSP_ROOT/rtthread.elf --sd $TEST_BSP_ROOT/sd.bin
         cat rtt_console.log
