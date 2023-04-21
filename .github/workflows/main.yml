@@ -7,6 +7,7 @@ jobs:
     env:
       TEST_BSP_ROOT: ../AutoTestBsp
       UTEST_RUNNER_PATH: ../UtestRunner
+      RTT_EXEC_PATH: /opt/gcc-arm-none-eabi-6-2017-q2-update/bin
     steps:
     - uses: actions/checkout@v1
     - name: Prepare env
@@ -15,7 +16,6 @@ jobs:
         sudo apt-get -yqq install scons qemu-system git
         wget -q https://github.com/RT-Thread/toolchains-ci/releases/download/arm-2017q2-v6/gcc-arm-none-eabi-6-2017-q2-update-linux.tar.bz2
         sudo tar xjf gcc-arm-none-eabi-6-2017-q2-update-linux.tar.bz2 -C /opt
-        export RTT_EXEC_PATH=/opt/gcc-arm-none-eabi-6-2017-q2-update/bin
         git clone https://github.com/armink/UtestRunner.git $UTEST_RUNNER_PATH
         git clone https://github.com/armink/FlashDBAutoTestBSP.git $TEST_BSP_ROOT
     - name: Build bsp
