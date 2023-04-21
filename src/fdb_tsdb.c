@@ -53,6 +53,7 @@
 #define db_init_ok(db)                           (((fdb_db_t)db)->init_ok)
 #define db_sec_size(db)                          (((fdb_db_t)db)->sec_size)
 #define db_max_size(db)                          (((fdb_db_t)db)->max_size)
+#define db_oldest_addr(db)                       (((fdb_db_t)db)->oldest_addr)
 
 #define db_lock(db)                                                            \
     do {                                                                       \
@@ -356,9 +357,9 @@ static fdb_err_t update_sec_status(fdb_tsdb_t db, tsdb_sec_info_t sector, fdb_bl
         if (sector->status != FDB_SECTOR_STORE_EMPTY) {
             /* calculate the oldest sector address */
             if (new_sec_addr + db_sec_size(db) < db_max_size(db)) {
-                db->oldest_addr = new_sec_addr + db_sec_size(db);
+                db_oldest_addr(db) = new_sec_addr + db_sec_size(db);
             } else {
-                db->oldest_addr = 0;
+                db_oldest_addr(db) = 0;
             }
             format_sector(db, new_sec_addr);
             read_sector_info(db, new_sec_addr, &db->cur_sec, false);
@@ -461,8 +462,8 @@ void fdb_tsl_iter(fdb_tsdb_t db, fdb_tsl_cb cb, void *arg)
         return;
     }
 
-    sec_addr = db->oldest_addr;
-    db_lock(db);
+    sec_addr = db_oldest_addr(db);
+	db_lock(db);
     /* search all sectors */
     do {
         traversed_len += db_sec_size(db);
@@ -597,7 +598,7 @@ void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl
     }
 
     if(from <= to) {
-        start_addr = db->oldest_addr;
+        start_addr = db_oldest_addr(db);
         get_sector_addr = get_next_sector_addr;
         get_tsl_addr = get_next_tsl_addr;
     } else {
@@ -777,7 +778,7 @@ static void tsl_format_all(fdb_tsdb_t db)
 
     sector.addr = 0;
     sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, db, NULL, format_all_cb, false);
-    db->oldest_addr = 0;
+    db_oldest_addr(db) = 0;
     db->cur_sec.addr = 0;
     db->last_time = 0;
     /* read the current using sector info */
@@ -904,7 +905,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
     db->max_len = max_len;
     /* default rollover flag is true */
     db->rollover = true;
-    db->oldest_addr = FDB_DATA_UNUSED;
+    db_oldest_addr(db) = FDB_DATA_UNUSED;
     db->cur_sec.addr = FDB_DATA_UNUSED;
     /* must less than sector size */
     FDB_ASSERT(max_len < db_sec_size(db));
@@ -935,19 +936,19 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
         /* db->cur_sec is the latest sector, and the next is the oldest sector */
         if (latest_addr + db_sec_size(db) >= db_max_size(db)) {
             /* db->cur_sec is the the bottom of the database */
-            db->oldest_addr = 0;
+            db_oldest_addr(db) = 0;
         } else {
-            db->oldest_addr = latest_addr + db_sec_size(db);
+            db_oldest_addr(db) = latest_addr + db_sec_size(db);
         }
     }
-    FDB_DEBUG("TSDB (%s) oldest sectors is 0x%08" PRIX32 ", current using sector is 0x%08" PRIX32 ".\n", db_name(db), db->oldest_addr,
+    FDB_DEBUG("TSDB (%s) oldest sectors is 0x%08" PRIX32 ", current using sector is 0x%08" PRIX32 ".\n", db_name(db), db_oldest_addr(db),
             db->cur_sec.addr);
     /* read the current using sector info */
     read_sector_info(db, db->cur_sec.addr, &db->cur_sec, true);
     /* get last save time */
     if (db->cur_sec.status == FDB_SECTOR_STORE_USING) {
         db->last_time = db->cur_sec.end_time;
-    } else if (db->cur_sec.status == FDB_SECTOR_STORE_EMPTY && db->oldest_addr != db->cur_sec.addr) {
+    } else if (db->cur_sec.status == FDB_SECTOR_STORE_EMPTY && db_oldest_addr(db) != db->cur_sec.addr) {
         struct tsdb_sec_info sec;
         uint32_t addr = db->cur_sec.addr;
 

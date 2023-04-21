@@ -264,6 +264,7 @@ struct fdb_db {
     } storage;
     uint32_t sec_size;                           /**< flash section size. It's a multiple of block size */
     uint32_t max_size;                           /**< database max size. It's a multiple of section size */
+    uint32_t oldest_addr;                        /**< the oldest sector start address */
     bool init_ok;                                /**< initialized successfully */
     bool file_mode;                              /**< is file mode, default is false */
     bool not_formatable;                         /**< is can NOT be formated mode, default is false */
@@ -301,7 +302,7 @@ struct fdb_kvdb {
 #ifdef FDB_KV_AUTO_UPDATE
     uint32_t ver_num;                            /**< setting version number for update */
 #endif
-    uint32_t oldest_addr;
+
     void *user_data;
 };
 typedef struct fdb_kvdb *fdb_kvdb_t;
@@ -313,7 +314,6 @@ struct fdb_tsdb {
     fdb_time_t last_time;                        /**< last TSL timestamp */
     fdb_get_time get_time;                       /**< the current timestamp get function */
     size_t max_len;                              /**< the maximum length of each log */
-    uint32_t oldest_addr;                        /**< the oldest sector start address */
     bool rollover;                               /**< the oldest data will rollover by newest data, default is true */
 
     void *user_data;
@@ -337,3 +337,4 @@ typedef struct fdb_blob *fdb_blob_t;
 #endif
 
 #endif /* _FDB_DEF_H_ */
+

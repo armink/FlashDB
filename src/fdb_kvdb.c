@@ -81,6 +81,7 @@
 #define db_init_ok(db)                           (((fdb_db_t)db)->init_ok)
 #define db_sec_size(db)                          (((fdb_db_t)db)->sec_size)
 #define db_max_size(db)                          (((fdb_db_t)db)->max_size)
+#define db_oldest_addr(db)                       (((fdb_db_t)db)->oldest_addr)
 
 #define db_lock(db)                                                            \
     do {                                                                       \
@@ -125,6 +126,7 @@ struct gc_cb_args {
     fdb_kvdb_t db;
     size_t cur_free_size;
     size_t setting_free_size;
+    uint32_t traversed_len;
 };
 
 struct check_oldest_addr_cb_args {
@@ -468,27 +470,27 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
     return result;
 }
 
-static uint32_t get_next_sector_addr(fdb_kvdb_t db, kv_sec_info_t pre_sec)
+static uint32_t get_next_sector_addr(fdb_kvdb_t db, kv_sec_info_t pre_sec, uint32_t traversed_len)
 {
-    uint32_t next_addr;
+    uint32_t cur_block_size;
 
-    if (pre_sec->addr == FAILED_ADDR) {
-        /* the next sector is on the top of the database */
-        return 0;
+    if (pre_sec->combined == SECTOR_NOT_COMBINED) {
+        cur_block_size = db_sec_size(db);
     } else {
-        /* check KV sector combined */
-        if (pre_sec->combined == SECTOR_NOT_COMBINED) {
-            next_addr = pre_sec->addr + db_sec_size(db);
+        cur_block_size = pre_sec->combined * db_sec_size(db);
+    }
+
+    if (traversed_len + cur_block_size <= db_max_size(db)) {
+        /* if reach to the end, roll back to the first sector */
+        if (pre_sec->addr + cur_block_size < db_max_size(db)) {
+            return pre_sec->addr + cur_block_size;
         } else {
-            next_addr = pre_sec->addr + pre_sec->combined * db_sec_size(db);
+            /* the next sector is on the top of the database */
+            return 0;
         }
-        /* check range */
-        if (next_addr < db_max_size(db)) {
-            return next_addr;
-        } else {
-            /* no sector */
-            return FAILED_ADDR;
-        }
+    } else {
+        /* finished */
+        return FAILED_ADDR;
     }
 }
 
@@ -496,11 +498,12 @@ static void kv_iterator(fdb_kvdb_t db, fdb_kv_t kv, void *arg1, void *arg2,
         bool (*callback)(fdb_kv_t kv, void *arg1, void *arg2))
 {
     struct kvdb_sec_info sector;
-    uint32_t sec_addr;
+    uint32_t sec_addr, traversed_len = 0;
 
-    sec_addr = 0;
+    sec_addr = db_oldest_addr(db);
     /* search all sectors */
     do {
+        traversed_len += db_sec_size(db);
         if (read_sector_info(db, sec_addr, &sector, false) != FDB_NO_ERR) {
             continue;
         }
@@ -519,7 +522,7 @@ static void kv_iterator(fdb_kvdb_t db, fdb_kv_t kv, void *arg1, void *arg2,
                 }
             } while ((kv->addr.start = get_next_kv_addr(db, &sector, kv)) != FAILED_ADDR);
         }
-    } while ((sec_addr = get_next_sector_addr(db, &sector)) != FAILED_ADDR);
+    } while ((sec_addr = get_next_sector_addr(db, &sector, traversed_len)) != FAILED_ADDR);
 }
 
 static bool find_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
@@ -822,13 +825,12 @@ static fdb_err_t update_sec_status(fdb_kvdb_t db, kv_sec_info_t sector, size_t n
 static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_store_status_t status, void *arg1, void *arg2,
         bool (*callback)(kv_sec_info_t sector, void *arg1, void *arg2), bool traversal_kv)
 {
-    uint32_t sec_addr;
-    uint32_t sec_iterate_end_addr;
+    uint32_t sec_addr, traversed_len = 0;
 
     /* search all sectors */
-    sec_addr = db->oldest_addr;
-    sec_iterate_end_addr = db->oldest_addr;
+    sec_addr = db_oldest_addr(db);
     do {
+        traversed_len += db_sec_size(db);
         read_sector_info(db, sec_addr, sector, false);
         if (status == FDB_SECTOR_STORE_UNUSED || status == sector->status.store) {
             if (traversal_kv) {
@@ -839,12 +841,7 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
                 return;
             }
         }
-        /* if reach to the end, roll back to the first sector */
-        if ((sec_addr = get_next_sector_addr(db, sector)) == FAILED_ADDR) {
-            sec_addr = 0;
-        }
-
-    } while (sec_addr != sec_iterate_end_addr);
+    } while ((sec_addr = get_next_sector_addr(db, sector, traversed_len)) != FAILED_ADDR);
 }
 
 static bool sector_statistics_cb(kv_sec_info_t sector, void *arg1, void *arg2)
@@ -906,6 +903,7 @@ static fdb_err_t del_kv(fdb_kvdb_t db, const char *key, fdb_kv_t old_kv, bool co
 {
     fdb_err_t result = FDB_NO_ERR;
     uint32_t dirty_status_addr;
+    struct fdb_kv kv = { 0 };
 
 #if (KV_STATUS_TABLE_SIZE >= FDB_DIRTY_STATUS_TABLE_SIZE)
     uint8_t status_table[KV_STATUS_TABLE_SIZE];
@@ -915,7 +913,6 @@ static fdb_err_t del_kv(fdb_kvdb_t db, const char *key, fdb_kv_t old_kv, bool co
 
     /* need find KV */
     if (!old_kv) {
-        struct fdb_kv kv;
         /* find KV */
         if (find_kv(db, key, &kv)) {
             old_kv = &kv;
@@ -1069,8 +1066,8 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
     struct fdb_kv kv;
     struct gc_cb_args *gc = (struct gc_cb_args *)arg1;
     fdb_kvdb_t db = gc->db;
-    uint32_t sec_addr;
 
+    gc->traversed_len += db_sec_size(db);
     if (sector->check_ok && (sector->status.dirty == FDB_SECTOR_DIRTY_TRUE || sector->status.dirty == FDB_SECTOR_DIRTY_GC)) {
         uint8_t status_table[FDB_DIRTY_STATUS_TABLE_SIZE];
         /* change the sector status to GC */
@@ -1090,14 +1087,7 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
         gc->cur_free_size += db_sec_size(db) - SECTOR_HDR_DATA_SIZE;
         FDB_DEBUG("Collect a sector @0x%08" PRIX32 "\n", sector->addr);
         /* update oldest_addr for next GC sector format */
-        sec_addr = get_next_sector_addr(db, sector);
-        /*sec_addr reached db_max_size(db), roll back to the first sector*/
-        if (sec_addr == FAILED_ADDR) {
-            db->oldest_addr = 0;
-        } else {
-            db->oldest_addr = sec_addr;
-        }
-        FDB_DEBUG("oldest_addr is @0x%08" PRIX32 "\n", db->oldest_addr);
+        db_oldest_addr(db) = get_next_sector_addr(db, sector, gc->traversed_len);
         if (gc->cur_free_size >= gc->setting_free_size)
             return true;
     }
@@ -1109,7 +1099,7 @@ static void gc_collect_by_free_size(fdb_kvdb_t db, size_t free_size)
 {
     struct kvdb_sec_info sector;
     size_t empty_sec = 0;
-    struct gc_cb_args arg = { db, 0, free_size };
+    struct gc_cb_args arg = { db, 0, free_size, 0 };
 
     /* GC check the empty sector number */
     sector_iterator(db, &sector, FDB_SECTOR_STORE_EMPTY, &empty_sec, NULL, gc_check_cb, false);
@@ -1749,10 +1739,10 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
         db->default_kvs.kvs = NULL;
     }
 
-    db->oldest_addr = 0;
+    db_oldest_addr(db) = 0;
     sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &arg, NULL, check_oldest_addr_cb, false);
-    db->oldest_addr = arg.sector_oldest_addr;
-    FDB_DEBUG("oldest_addr is @0x%08" PRIX32 "\n", db->oldest_addr);
+    db_oldest_addr(db) = arg.sector_oldest_addr;
+    FDB_DEBUG("The oldest addr is @0x%08" PRIX32 "\n", db_oldest_addr(db));
     /* there is at least one empty sector for GC. */
     FDB_ASSERT((FDB_GC_EMPTY_SEC_THRESHOLD > 0 && FDB_GC_EMPTY_SEC_THRESHOLD < SECTOR_NUM))
 
@@ -1828,7 +1818,10 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
 {
     struct kvdb_sec_info sector;
     fdb_kv_t kv = &(itr->curr_kv);
+    uint32_t traversed_len = 0;
+
     do {
+        traversed_len += db_sec_size(db);
         if (read_sector_info(db, itr->sector_addr, &sector, false) == FDB_NO_ERR) {
             if (sector.status.store == FDB_SECTOR_STORE_USING || sector.status.store == FDB_SECTOR_STORE_FULL) {
                 if (kv->addr.start == 0) {
@@ -1854,7 +1847,7 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
          *  the kv->addr.start is set to the new sector.addr + SECTOR_HDR_DATA_SIZE.
          */
         kv->addr.start = 0;
-    } while ((itr->sector_addr = get_next_sector_addr(db, &sector)) != FAILED_ADDR);
+    } while ((itr->sector_addr = get_next_sector_addr(db, &sector, traversed_len)) != FAILED_ADDR);
     /* Finally we have iterated all the KVs. */
     return false;
 }
