@@ -809,8 +809,7 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
             }
         }
         // if reach to the end, roll back to the first sector
-        if ((sec_addr = get_next_sector_addr(db, sector)) == FAILED_ADDR)
-        {
+        if ((sec_addr = get_next_sector_addr(db, sector)) == FAILED_ADDR) {
             sec_addr = 0;
         }
 
