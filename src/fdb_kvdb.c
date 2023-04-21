@@ -788,13 +788,8 @@ static fdb_err_t update_sec_status(fdb_kvdb_t db, kv_sec_info_t sector, size_t n
     return result;
 }
 
-static void sector_iterator(fdb_kvdb_t                db,
-                            kv_sec_info_t             sector,
-                            fdb_sector_store_status_t status,
-                            void *                    arg1,
-                            void *                    arg2,
-                            bool (*callback)(kv_sec_info_t sector, void *arg1, void *arg2),
-                            bool traversal_kv)
+static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_store_status_t status, void *arg1, void *arg2,
+        bool (*callback)(kv_sec_info_t sector, void *arg1, void *arg2), bool traversal_kv)
 {
     uint32_t sec_addr;
     uint32_t sec_iterate_end_addr;
@@ -802,18 +797,14 @@ static void sector_iterator(fdb_kvdb_t                db,
     /* search all sectors */
     sec_addr             = db->oldest_addr;
     sec_iterate_end_addr = db->oldest_addr;  // db->oldest_addr may change in callback
-    do
-    {
+    do {
         read_sector_info(db, sec_addr, sector, false);
-        if (status == FDB_SECTOR_STORE_UNUSED || status == sector->status.store)
-        {
-            if (traversal_kv)
-            {
+        if (status == FDB_SECTOR_STORE_UNUSED || status == sector->status.store) {
+            if (traversal_kv) {
                 read_sector_info(db, sec_addr, sector, true);
             }
             /* iterator is interrupted when callback return true */
-            if (callback && callback(sector, arg1, arg2))
-            {
+            if (callback && callback(sector, arg1, arg2)) {
                 return;
             }
         }
@@ -1071,12 +1062,9 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
         /* update oldest_addr for next GC sector format */
         sec_addr = get_next_sector_addr(db, sector);
         /*sec_addr reached db_max_size(db), roll back to the first sector*/
-        if (sec_addr == FAILED_ADDR)
-        {
+        if (sec_addr == FAILED_ADDR) {
             db->oldest_addr = 0;
-        }
-        else
-        {
+        } else {
             db->oldest_addr = sec_addr;
         }
         FDB_DEBUG("oldest_addr is @0x%08" PRIX32 "\n", db->oldest_addr);
@@ -1492,35 +1480,26 @@ static bool check_oldest_addr_cb(kv_sec_info_t sector, void *arg1, void *arg2)
 {
     struct check_oldest_addr_cb_args *arg = (struct check_oldest_addr_cb_args *)arg1;
 
-    if(sector->status.store == FDB_SECTOR_STORE_FULL)
-    {
-        // found the first full sector, if there is no full sector on the using sector's right,
-        // the first found full sector on the left of the using sector is the oldest
-        if (arg->is_first_full_sector_found == false)
-        {
+    if(sector->status.store == FDB_SECTOR_STORE_FULL) {
+        /* found the first full sector, if there is no full sector on the using sector's right,
+         * the first found full sector on the left of the using sector is the oldest */
+        if (arg->is_first_full_sector_found == false) {
             arg->is_first_full_sector_found = true;
             arg->sector_oldest_addr = sector->addr;
         }
 
-        // if there is full sector on the right of the using sector,
-        // the first full sector found on the right of the using sector is the oldest
-        if ((arg->is_first_using_sector_found == true) && (sector->addr > arg->sector_using_addr))
-        {
+        /*  if there is full sector on the right of the using sector,
+         * the first full sector found on the right of the using sector is the oldest */
+        if ((arg->is_first_using_sector_found == true) && (sector->addr > arg->sector_using_addr)) {
             arg->sector_oldest_addr = sector->addr;
             return true;
         }
-    }
-    else if(sector->status.store == FDB_SECTOR_STORE_USING)
-    {
-        // found the first using sector
-        if (arg->is_first_using_sector_found == false)
-        {
+    }else if(sector->status.store == FDB_SECTOR_STORE_USING) {
+        /* found the first using sector */
+        if (arg->is_first_using_sector_found == false) {
             arg->is_first_using_sector_found = true;
             arg->sector_using_addr = sector->addr;
         }
-    }
-    else
-    {
     }
 
     return false;
