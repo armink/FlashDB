@@ -125,6 +125,14 @@ struct gc_cb_args {
     size_t setting_free_size;
 };
 
+struct check_oldest_addr_cb_args {
+    fdb_kvdb_t db;
+    size_t sector_using_addr;
+    size_t sector_oldest_addr;
+    bool is_first_full_sector_found;
+    bool is_first_using_sector_found;
+};
+
 static void gc_collect(fdb_kvdb_t db);
 static void gc_collect_by_free_size(fdb_kvdb_t db, size_t free_size);
 
@@ -784,9 +792,11 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
         bool (*callback)(kv_sec_info_t sector, void *arg1, void *arg2), bool traversal_kv)
 {
     uint32_t sec_addr;
+    uint32_t sec_iterate_end_addr;
 
     /* search all sectors */
-    sec_addr = 0;
+    sec_addr             = db->oldest_addr;
+    sec_iterate_end_addr = db->oldest_addr;
     do {
         read_sector_info(db, sec_addr, sector, false);
         if (status == FDB_SECTOR_STORE_UNUSED || status == sector->status.store) {
@@ -798,7 +808,12 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
                 return;
             }
         }
-    } while ((sec_addr = get_next_sector_addr(db, sector)) != FAILED_ADDR);
+        /* if reach to the end, roll back to the first sector */
+        if ((sec_addr = get_next_sector_addr(db, sector)) == FAILED_ADDR) {
+            sec_addr = 0;
+        }
+
+    } while (sec_addr != sec_iterate_end_addr);
 }
 
 static bool sector_statistics_cb(kv_sec_info_t sector, void *arg1, void *arg2)
@@ -1023,6 +1038,7 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
     struct fdb_kv kv;
     struct gc_cb_args *gc = (struct gc_cb_args *)arg1;
     fdb_kvdb_t db = gc->db;
+    uint32_t sec_addr;
 
     if (sector->check_ok && (sector->status.dirty == FDB_SECTOR_DIRTY_TRUE || sector->status.dirty == FDB_SECTOR_DIRTY_GC)) {
         uint8_t status_table[FDB_DIRTY_STATUS_TABLE_SIZE];
@@ -1042,6 +1058,15 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
         format_sector(db, sector->addr, SECTOR_NOT_COMBINED);
         gc->cur_free_size += db_sec_size(db) - SECTOR_HDR_DATA_SIZE;
         FDB_DEBUG("Collect a sector @0x%08" PRIX32 "\n", sector->addr);
+        /* update oldest_addr for next GC sector format */
+        sec_addr = get_next_sector_addr(db, sector);
+        /*sec_addr reached db_max_size(db), roll back to the first sector*/
+        if (sec_addr == FAILED_ADDR) {
+            db->oldest_addr = 0;
+        } else {
+            db->oldest_addr = sec_addr;
+        }
+        FDB_DEBUG("oldest_addr is @0x%08" PRIX32 "\n", db->oldest_addr);
         if (gc->cur_free_size >= gc->setting_free_size)
             return true;
     }
@@ -1450,6 +1475,35 @@ static void kv_auto_update(fdb_kvdb_t db)
 }
 #endif /* FDB_KV_AUTO_UPDATE */
 
+static bool check_oldest_addr_cb(kv_sec_info_t sector, void *arg1, void *arg2)
+{
+    struct check_oldest_addr_cb_args *arg = (struct check_oldest_addr_cb_args *)arg1;
+
+    if(sector->status.store == FDB_SECTOR_STORE_FULL) {
+        /* found the first full sector, if there is no full sector on the using sector's right,
+         * the first found full sector on the left of the using sector is the oldest */
+        if (arg->is_first_full_sector_found == false) {
+            arg->is_first_full_sector_found = true;
+            arg->sector_oldest_addr = sector->addr;
+        }
+
+        /*  if there is full sector on the right of the using sector,
+         * the first full sector found on the right of the using sector is the oldest */
+        if ((arg->is_first_using_sector_found == true) && (sector->addr > arg->sector_using_addr)) {
+            arg->sector_oldest_addr = sector->addr;
+            return true;
+        }
+    }else if(sector->status.store == FDB_SECTOR_STORE_USING) {
+        /* found the first using sector */
+        if (arg->is_first_using_sector_found == false) {
+            arg->is_first_using_sector_found = true;
+            arg->sector_using_addr = sector->addr;
+        }
+    }
+
+    return false;
+}
+
 static bool check_sec_hdr_cb(kv_sec_info_t sector, void *arg1, void *arg2)
 {
     if (!sector->check_ok) {
@@ -1638,6 +1692,8 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
         void *user_data)
 {
     fdb_err_t result = FDB_NO_ERR;
+    struct kvdb_sec_info sector;
+    struct check_oldest_addr_cb_args arg = {db, 0, 0, false, false};
 
 #ifdef FDB_KV_USING_CACHE
     size_t i;
@@ -1660,6 +1716,11 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
         db->default_kvs.num = 0;
         db->default_kvs.kvs = NULL;
     }
+
+    db->oldest_addr = 0;
+    sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &arg, NULL, check_oldest_addr_cb, false);
+    db->oldest_addr = arg.sector_oldest_addr;
+    FDB_DEBUG("oldest_addr is @0x%08" PRIX32 "\n", db->oldest_addr);
     /* there is at least one empty sector for GC. */
     FDB_ASSERT((FDB_GC_EMPTY_SEC_THRESHOLD > 0 && FDB_GC_EMPTY_SEC_THRESHOLD < SECTOR_NUM))
 
