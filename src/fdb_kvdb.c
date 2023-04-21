@@ -826,7 +826,7 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
     uint32_t sec_iterate_end_addr;
 
     /* search all sectors */
-    sec_addr             = db->oldest_addr;
+    sec_addr = db->oldest_addr;
     sec_iterate_end_addr = db->oldest_addr;
     do {
         read_sector_info(db, sec_addr, sector, false);
@@ -1109,7 +1109,7 @@ static void gc_collect_by_free_size(fdb_kvdb_t db, size_t free_size)
 {
     struct kvdb_sec_info sector;
     size_t empty_sec = 0;
-    struct gc_cb_args arg = {db, 0, free_size};
+    struct gc_cb_args arg = { db, 0, free_size };
 
     /* GC check the empty sector number */
     sector_iterator(db, &sector, FDB_SECTOR_STORE_EMPTY, &empty_sec, NULL, gc_check_cb, false);
@@ -1148,12 +1148,13 @@ static fdb_err_t align_write(fdb_kvdb_t db, uint32_t addr, const uint32_t *buf, 
 #endif
 
     memset(align_data, FDB_BYTE_ERASED, align_data_size);
-    result = _fdb_flash_write((fdb_db_t)db, addr, buf, FDB_WG_ALIGN_DOWN(size), false);
+    result = _fdb_flash_write((fdb_db_t) db, addr, buf, FDB_WG_ALIGN_DOWN(size), false);
 
     align_remain = size - FDB_WG_ALIGN_DOWN(size);
     if (result == FDB_NO_ERR && align_remain) {
-        memcpy(align_data, (uint8_t *)buf + FDB_WG_ALIGN_DOWN(size), align_remain);
-        result = _fdb_flash_write((fdb_db_t)db, addr + FDB_WG_ALIGN_DOWN(size), (uint32_t *) align_data, align_data_size, false);
+        memcpy(align_data, (uint8_t *) buf + FDB_WG_ALIGN_DOWN(size), align_remain);
+        result = _fdb_flash_write((fdb_db_t) db, addr + FDB_WG_ALIGN_DOWN(size), (uint32_t *) align_data,
+                align_data_size, false);
     }
 
     return result;
@@ -1225,7 +1226,8 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
         }
         /* change the KV status to KV_WRITE */
         if (result == FDB_NO_ERR) {
-            result = _fdb_write_status((fdb_db_t)db, kv_addr, kv_hdr.status_table, FDB_KV_STATUS_NUM, FDB_KV_WRITE, true);
+            result = _fdb_write_status((fdb_db_t) db, kv_addr, kv_hdr.status_table, FDB_KV_STATUS_NUM, FDB_KV_WRITE,
+                    true);
         }
         /* trigger GC collect when current sector is full */
         if (result == FDB_NO_ERR && is_full) {
@@ -1508,9 +1510,9 @@ static void kv_auto_update(fdb_kvdb_t db)
 
 static bool check_oldest_addr_cb(kv_sec_info_t sector, void *arg1, void *arg2)
 {
-    struct check_oldest_addr_cb_args *arg = (struct check_oldest_addr_cb_args *)arg1;
+    struct check_oldest_addr_cb_args *arg = (struct check_oldest_addr_cb_args *) arg1;
 
-    if(sector->status.store == FDB_SECTOR_STORE_FULL) {
+    if (sector->status.store == FDB_SECTOR_STORE_FULL) {
         /* found the first full sector, if there is no full sector on the using sector's right,
          * the first found full sector on the left of the using sector is the oldest */
         if (arg->is_first_full_sector_found == false) {
@@ -1524,7 +1526,7 @@ static bool check_oldest_addr_cb(kv_sec_info_t sector, void *arg1, void *arg2)
             arg->sector_oldest_addr = sector->addr;
             return true;
         }
-    }else if(sector->status.store == FDB_SECTOR_STORE_USING) {
+    } else if (sector->status.store == FDB_SECTOR_STORE_USING) {
         /* found the first using sector */
         if (arg->is_first_using_sector_found == false) {
             arg->is_first_using_sector_found = true;
@@ -1659,17 +1661,17 @@ void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
     case FDB_KVDB_CTRL_SET_SEC_SIZE:
         /* this change MUST before database initialization */
         FDB_ASSERT(db->parent.init_ok == false);
-        db->parent.sec_size = *(uint32_t *)arg;
+        db->parent.sec_size = *(uint32_t *) arg;
         break;
     case FDB_KVDB_CTRL_GET_SEC_SIZE:
-        *(uint32_t *)arg = db->parent.sec_size;
+        *(uint32_t *) arg = db->parent.sec_size;
         break;
     case FDB_KVDB_CTRL_SET_LOCK:
 #if !defined(__ARMCC_VERSION) && defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
-        db->parent.lock = (void (*)(fdb_db_t db))arg;
+        db->parent.lock = (void (*)(fdb_db_t db)) arg;
 #if !defined(__ARMCC_VERSION) && defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
@@ -1679,7 +1681,7 @@ void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
-        db->parent.unlock = (void (*)(fdb_db_t db))arg;
+        db->parent.unlock = (void (*)(fdb_db_t db)) arg;
 #if !defined(__ARMCC_VERSION) && defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
@@ -1688,7 +1690,7 @@ void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
 #ifdef FDB_USING_FILE_MODE
         /* this change MUST before database initialization */
         FDB_ASSERT(db->parent.init_ok == false);
-        db->parent.file_mode = *(bool *)arg;
+        db->parent.file_mode = *(bool *) arg;
 #else
         FDB_INFO("Error: set file mode Failed. Please defined the FDB_USING_FILE_MODE macro.");
 #endif
@@ -1724,7 +1726,7 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
 {
     fdb_err_t result = FDB_NO_ERR;
     struct kvdb_sec_info sector;
-    struct check_oldest_addr_cb_args arg = {db, 0, 0, false, false};
+    struct check_oldest_addr_cb_args arg = { db, 0, 0, false, false };
 
 #ifdef FDB_KV_USING_CACHE
     size_t i;
@@ -1733,7 +1735,7 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
     /* must be aligned with write granularity */
     FDB_ASSERT((FDB_STR_KV_VALUE_MAX_SIZE * 8) % FDB_WRITE_GRAN == 0);
 
-    result = _fdb_init_ex((fdb_db_t)db, name, path, FDB_DB_TYPE_KV, user_data);
+    result = _fdb_init_ex((fdb_db_t) db, name, path, FDB_DB_TYPE_KV, user_data);
     if (result != FDB_NO_ERR) {
         goto __exit;
     }
@@ -1742,8 +1744,7 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
     db->in_recovery_check = false;
     if (default_kv) {
         db->default_kvs = *default_kv;
-    }
-    else {
+    } else {
         db->default_kvs.num = 0;
         db->default_kvs.kvs = NULL;
     }
@@ -1832,8 +1833,7 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
             if (sector.status.store == FDB_SECTOR_STORE_USING || sector.status.store == FDB_SECTOR_STORE_FULL) {
                 if (kv->addr.start == 0) {
                     kv->addr.start = sector.addr + SECTOR_HDR_DATA_SIZE;
-                }
-                else if ((kv->addr.start = get_next_kv_addr(db, &sector, kv)) == FAILED_ADDR) {
+                } else if ((kv->addr.start = get_next_kv_addr(db, &sector, kv)) == FAILED_ADDR) {
                     kv->addr.start = 0;
                     continue;
                 }
@@ -1847,12 +1847,12 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
                         itr->iterated_value_bytes += kv->value_len;
                         return true;
                     }
-                } while((kv->addr.start = get_next_kv_addr(db, &sector, kv)) != FAILED_ADDR);
+                } while ((kv->addr.start = get_next_kv_addr(db, &sector, kv)) != FAILED_ADDR);
             }
         }
         /** Set kv->addr.start to 0 when we get into a new sector so that if we successfully get the next sector info,
          *  the kv->addr.start is set to the new sector.addr + SECTOR_HDR_DATA_SIZE.
-        */
+         */
         kv->addr.start = 0;
     } while ((itr->sector_addr = get_next_sector_addr(db, &sector)) != FAILED_ADDR);
     /* Finally we have iterated all the KVs. */
