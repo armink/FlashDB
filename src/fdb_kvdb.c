@@ -796,7 +796,7 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
 
     /* search all sectors */
     sec_addr             = db->oldest_addr;
-    sec_iterate_end_addr = db->oldest_addr;  // db->oldest_addr may change in callback
+    sec_iterate_end_addr = db->oldest_addr;
     do {
         read_sector_info(db, sec_addr, sector, false);
         if (status == FDB_SECTOR_STORE_UNUSED || status == sector->status.store) {
@@ -808,7 +808,7 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
                 return;
             }
         }
-        // if reach to the end, roll back to the first sector
+        /* if reach to the end, roll back to the first sector */
         if ((sec_addr = get_next_sector_addr(db, sector)) == FAILED_ADDR) {
             sec_addr = 0;
         }
