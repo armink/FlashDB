@@ -389,8 +389,8 @@ static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob)
     FDB_ASSERT(blob->size <= db->max_len);
 
     /* check the current timestamp, MUST more than the last save timestamp */
-    if (cur_time < db->last_time) {
-        FDB_INFO("Warning: current timestamp (%" PRIdMAX ") is less than the last save timestamp (%" PRIdMAX "). This tsl will be dropped.\n",
+    if (cur_time <= db->last_time) {
+        FDB_INFO("Warning: current timestamp (%" PRIdMAX ") is less than or equal to the last save timestamp (%" PRIdMAX "). This tsl will be dropped.\n",
                 (intmax_t )cur_time, (intmax_t )(db->last_time));
         return FDB_WRITE_ERR;
     }
