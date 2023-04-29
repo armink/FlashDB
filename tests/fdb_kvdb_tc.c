@@ -16,6 +16,7 @@
 #include <flashdb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #define TEST_TS_PART_NAME             "fdb_kvdb1"
 #define TEST_KV_BLOB_NAME             "kv_blob_test"
@@ -35,6 +36,8 @@ struct test_kv{
 };
 
 static struct fdb_kvdb test_kvdb;
+
+static void test_fdb_kvdb_deinit(void);
 
 static void test_fdb_kvdb_init(void)
 {
@@ -184,7 +187,6 @@ static void test_fdb_del_kv(void)
 
     {
         /* check the oldest address is already right when kvdb reinit */
-        extern void test_fdb_kvdb_deinit(void);
         test_fdb_kvdb_deinit();
         test_fdb_kvdb_init();
 
@@ -227,7 +229,7 @@ static void test_fdb_by_kvs(struct test_kv *kv_tbl, size_t len)
     struct fdb_blob blob_obj, * blob = &blob_obj;
     static struct test_kv saved_kv_tbl[TEST_KV_NUM] = { 0 };
 
-    for (int i = 0; i < len; i++)
+    for (size_t i = 0; i < len; i++)
     {
         if (kv_tbl[i].is_changed)
         {
@@ -237,7 +239,7 @@ static void test_fdb_by_kvs(struct test_kv *kv_tbl, size_t len)
 
     iter_all_kv(&test_kvdb, saved_kv_tbl);
 
-    for (int i = 0; i < len; i++)
+    for (size_t i = 0; i < len; i++)
     {
         uassert_str_equal(saved_kv_tbl[i].name, kv_tbl[i].name);
         uassert_str_equal(saved_kv_tbl[i].value, kv_tbl[i].value);
