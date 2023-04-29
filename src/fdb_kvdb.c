@@ -317,7 +317,7 @@ static uint32_t get_next_kv_addr(fdb_kvdb_t db, kv_sec_info_t sector, fdb_kv_t p
             /* check and find next KV address */
             addr = find_next_kv_addr(db, addr, sector->addr + db_sec_size(db) - SECTOR_HDR_DATA_SIZE);
 
-            if (addr > sector->addr + db_sec_size(db) || pre_kv->len == 0) {
+            if (addr == FAILED_ADDR || addr > sector->addr + db_sec_size(db) || pre_kv->len == 0) {
                 //TODO Sector continuous mode
                 return FAILED_ADDR;
             }
@@ -1378,6 +1378,7 @@ fdb_err_t fdb_kv_set_default(fdb_kvdb_t db)
     }
 
 __exit:
+    db_oldest_addr(db) = 0;
     /* unlock the KV cache */
     db_unlock(db);
 
@@ -1828,6 +1829,7 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
                     kv->addr.start = sector.addr + SECTOR_HDR_DATA_SIZE;
                 } else if ((kv->addr.start = get_next_kv_addr(db, &sector, kv)) == FAILED_ADDR) {
                     kv->addr.start = 0;
+                    itr->traversed_len += db_sec_size(db);
                     continue;
                 }
                 do {
