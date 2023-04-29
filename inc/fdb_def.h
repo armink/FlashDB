@@ -164,6 +164,7 @@ struct fdb_kv_iterator {
     size_t iterated_obj_bytes;                   /**< Total storage size of KVs we have iterated. */
     size_t iterated_value_bytes;                 /**< Total value size of KVs we have iterated. */
     uint32_t sector_addr;                        /**< Current sector address we're iterating. DO NOT touch it. */
+    uint32_t traversed_len;                      /**< Traversed sector total length. */
 };
 typedef struct fdb_kv_iterator *fdb_kv_iterator_t;
 

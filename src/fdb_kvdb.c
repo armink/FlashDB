@@ -1789,11 +1789,12 @@ fdb_err_t fdb_kvdb_deinit(fdb_kvdb_t db)
 /**
  * The KV database initialization.
  *
+ * @param db database object
  * @param itr iterator structure to be initialized
  *
  * @return pointer to the iterator initialized.
  */
-fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kv_iterator_t itr)
+fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kvdb_t db, fdb_kv_iterator_t itr)
 {
     itr->curr_kv.addr.start = 0;
 
@@ -1801,8 +1802,9 @@ fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kv_iterator_t itr)
     itr->iterated_cnt = 0;
     itr->iterated_obj_bytes = 0;
     itr->iterated_value_bytes = 0;
+    itr->traversed_len = 0;
     /* Start from sector head */
-    itr->sector_addr = 0;
+    itr->sector_addr = db_oldest_addr(db);
     return itr;
 }
 
@@ -1818,10 +1820,8 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
 {
     struct kvdb_sec_info sector;
     fdb_kv_t kv = &(itr->curr_kv);
-    uint32_t traversed_len = 0;
 
     do {
-        traversed_len += db_sec_size(db);
         if (read_sector_info(db, itr->sector_addr, &sector, false) == FDB_NO_ERR) {
             if (sector.status.store == FDB_SECTOR_STORE_USING || sector.status.store == FDB_SECTOR_STORE_FULL) {
                 if (kv->addr.start == 0) {
@@ -1847,7 +1847,8 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
          *  the kv->addr.start is set to the new sector.addr + SECTOR_HDR_DATA_SIZE.
          */
         kv->addr.start = 0;
-    } while ((itr->sector_addr = get_next_sector_addr(db, &sector, traversed_len)) != FAILED_ADDR);
+        itr->traversed_len += db_sec_size(db);
+    } while ((itr->sector_addr = get_next_sector_addr(db, &sector, itr->traversed_len)) != FAILED_ADDR);
     /* Finally we have iterated all the KVs. */
     return false;
 }

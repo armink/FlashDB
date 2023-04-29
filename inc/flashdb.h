@@ -54,7 +54,7 @@ fdb_kv_t          fdb_kv_get_obj      (fdb_kvdb_t db, const char *key, fdb_kv_t 
 fdb_blob_t        fdb_kv_to_blob      (fdb_kv_t   kv, fdb_blob_t blob);
 fdb_err_t         fdb_kv_set_default  (fdb_kvdb_t db);
 void              fdb_kv_print        (fdb_kvdb_t db);
-fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kv_iterator_t itr);
+fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kvdb_t db, fdb_kv_iterator_t itr);
 bool              fdb_kv_iterate      (fdb_kvdb_t db, fdb_kv_iterator_t itr);
 
 /* Time series log API like a TSDB */

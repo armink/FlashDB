@@ -221,10 +221,11 @@ Reset the KV in KVDB to the **first initial** default value
 | Return | Converted blob object |
 
 ### Initialize KV iterator
-`fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kv_iterator_t itr)`
+`fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kvdb_t db, fdb_kv_iterator_t itr)`
 
 | Parameters | Description |
 | ---- | -------------------- |
+| db | Database Objects |
 | itr | Iterator object to be initialized |
 | Return | Iterator object after initialization |
 

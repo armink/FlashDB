@@ -221,10 +221,11 @@ if (blob.saved.len > 0) {
 | 返回 | 转换后的 blob 对象 |
 
 ### 初始化 KV 迭代器
-`fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kv_iterator_t itr)`
+`fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kvdb_t db, fdb_kv_iterator_t itr)`
 
 | 参数 | 描述                 |
 | ---- | -------------------- |
+| db   | 数据库对象           |
 | itr  | 待初始化的迭代器对象 |
 | 返回 | 初始化后的迭代器对象 |
 

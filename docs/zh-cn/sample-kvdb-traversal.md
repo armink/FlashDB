@@ -17,7 +17,7 @@ void kvdb_tarversal_sample(fdb_kvdb_t kvdb)
     size_t data_size;
     uint8_t *data_buf;
 
-    fdb_kv_iterator_init(&iterator);
+    fdb_kv_iterator_init(kvdb, &iterator);
 
     while (fdb_kv_iterate(kvdb, &iterator)) {
         cur_kv = &(iterator.curr_kv);
