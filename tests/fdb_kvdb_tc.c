@@ -45,16 +45,13 @@ static void test_fdb_kvdb_init(void)
     {
         mkdir(TEST_TS_PART_NAME, 0);
     }
-#ifndef FDB_USING_FAL_MODE    
+
     uint32_t sec_size = TEST_KVDB_SECTOR_SIZE, db_size = sec_size * 4;
     rt_bool_t file_mode = true;
-#endif
 
- #ifndef FDB_USING_FAL_MODE
     fdb_kvdb_control(&(test_kvdb), FDB_KVDB_CTRL_SET_SEC_SIZE, &sec_size);
     fdb_kvdb_control(&(test_kvdb), FDB_KVDB_CTRL_SET_FILE_MODE, &file_mode);
     fdb_kvdb_control(&(test_kvdb), FDB_KVDB_CTRL_SET_MAX_SIZE, &db_size);
-#endif
 
     uassert_true(fdb_kvdb_init(&test_kvdb, "test_kv", TEST_TS_PART_NAME, NULL, NULL) == FDB_NO_ERR);
 }
@@ -224,7 +221,7 @@ static int iter_all_kv(fdb_kvdb_t db, struct test_kv *kv_tbl)
     return index;
 }
 
-static void test_fdb_by_kvs(struct test_kv *kv_tbl, size_t len)
+static void test_fdb_by_kvs(const struct test_kv *kv_tbl, size_t len)
 {
     struct fdb_blob blob_obj, * blob = &blob_obj;
     static struct test_kv saved_kv_tbl[TEST_KV_NUM] = { 0 };
@@ -274,16 +271,15 @@ static void test_fdb_gc(void)
          * |              |             |              |             |
          * +---------------------------------------------------------+
          */
-        struct test_kv kv_tbl[TEST_KV_NUM] = {
+        const struct test_kv kv_tbl[] = {
             {"kv0", "0", 0, 0, 1},
             {"kv1", "1", 0, 0, 1},
             {"kv2", "2", 0, 0, 1},
             {"kv3", "3", 1, 0, 1},
         };
 
-        test_fdb_by_kvs(kv_tbl, sizeof(kv_tbl)/sizeof(kv_tbl[0]));
+        test_fdb_by_kvs(kv_tbl, sizeof(kv_tbl) / sizeof(kv_tbl[0]));
         uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 0);
-
     }
 
     {
@@ -309,7 +305,7 @@ static void test_fdb_gc(void)
          * |              |             |              |             |
          * +--------------+-------------+--------------+-------------+
          */
-        struct test_kv kv_tbl[TEST_KV_NUM] = {
+        const struct test_kv kv_tbl[] = {
             {"kv1", "1", 0, 0, 0},
             {"kv2", "2", 0, 0, 0},
             {"kv0", "00", 1, 0, 1},
@@ -345,7 +341,7 @@ static void test_fdb_gc(void)
          * +--------------+-------------+--------------+-------------+
          *
          * step2.1: change kv3, start GC, only GC 1 sector on FlashDB V1.2
-         * 
+         *
          * +--------------+-------------+--------------+-------------+
          * |   sector0    |   sector1   |   sector2    |   sector3   |
          * |    empty     |    using    |     using    |    empty    |
@@ -364,9 +360,9 @@ static void test_fdb_gc(void)
          * |              +----------------------------+             |
          * |              |             |              |             |
          * +--------------+-------------+--------------+-------------+
-         * 
+         *
          * step2.2: change kv3
-         * 
+         *
          * +--------------+-------------+--------------+-------------+
          * |   sector0    |   sector1   |   sector2    |   sector3   |
          * |    empty     |    using    |     using    |    using    |
@@ -387,7 +383,7 @@ static void test_fdb_gc(void)
          * +--------------+-------------+--------------+-------------+
          *
          */
-        struct test_kv kv_tbl[TEST_KV_NUM] = {
+        const struct test_kv kv_tbl[] = {
             {"kv0", "000", 2, 0, 1},
             {"kv1", "111", 2, 0, 1},
             {"kv2", "222", 2, 0, 1},
@@ -485,7 +481,7 @@ static void test_fdb_gc(void)
          * |              |             |              |             |
          * +--------------+-------------+--------------+-------------+
          */
-        struct test_kv kv_tbl[TEST_KV_NUM] = {
+        const struct test_kv kv_tbl[] = {
             {"kv0", "0000", 3, 0, 1},
             {"kv1", "1111", 3, 0, 1},
             {"kv2", "2222", 0, 0, 1},
@@ -496,14 +492,12 @@ static void test_fdb_gc(void)
         uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 2);
     }
 
-    {
-        /* check the oldest address is already right when kvdb reinit */
-        extern void test_fdb_kvdb_deinit(void);
-        test_fdb_kvdb_deinit();
-        test_fdb_kvdb_init();
+    /* check the oldest address is already right when kvdb reinit */
+    extern void test_fdb_kvdb_deinit(void);
+    test_fdb_kvdb_deinit();
+    test_fdb_kvdb_init();
 
-        uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 2);
-    }
+    uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 2);
 }
 
 static void test_fdb_kvdb_set_default(void)
