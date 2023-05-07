@@ -334,7 +334,7 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
     kv->status = (fdb_kv_status_t) _fdb_get_status(kv_hdr.status_table, FDB_KV_STATUS_NUM);
     kv->len = kv_hdr.len;
 
-    if (kv->len == ~0UL || kv->len > db_max_size(db) || kv->len < KV_NAME_LEN_OFFSET) {
+    if (kv->len == ~0UL || kv->len > db_max_size(db) || kv->len < KV_HDR_DATA_SIZE) {
         /* the KV length was not write, so reserved the info for current KV */
         kv->len = KV_HDR_DATA_SIZE;
         if (kv->status != FDB_KV_ERR_HDR) {
@@ -350,7 +350,9 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
     }
 
     /* CRC32 data len(header.name_len + header.value_len + name + value) */
-    crc_data_len = kv->len - KV_NAME_LEN_OFFSET;
+    calc_crc32 = fdb_calc_crc32(calc_crc32, &kv_hdr.name_len, sizeof(kv_hdr.name_len));
+    calc_crc32 = fdb_calc_crc32(calc_crc32, &kv_hdr.value_len, sizeof(kv_hdr.value_len));
+    crc_data_len = kv->len - KV_HDR_DATA_SIZE;
     /* calculate the CRC32 value */
     for (len = 0, size = 0; len < crc_data_len; len += size) {
         if (len + sizeof(buf) < crc_data_len) {
@@ -359,7 +361,7 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
             size = crc_data_len - len;
         }
 
-        _fdb_flash_read((fdb_db_t)db, kv->addr.start + KV_NAME_LEN_OFFSET + len, (uint32_t *) buf, FDB_WG_ALIGN(size));
+        _fdb_flash_read((fdb_db_t)db, kv->addr.start + KV_HDR_DATA_SIZE + len, (uint32_t *) buf, FDB_WG_ALIGN(size));
         calc_crc32 = fdb_calc_crc32(calc_crc32, buf, size);
     }
     /* check CRC32 */
@@ -1174,7 +1176,9 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
         if (result == FDB_NO_ERR) {
             uint8_t ff = FDB_BYTE_ERASED;
             /* start calculate CRC32 */
-            kv_hdr.crc32 = fdb_calc_crc32(0, &kv_hdr.name_len, KV_HDR_DATA_SIZE - KV_NAME_LEN_OFFSET);
+            kv_hdr.crc32 = 0;
+            kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, &kv_hdr.name_len, sizeof(kv_hdr.name_len));
+            kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, &kv_hdr.value_len, sizeof(kv_hdr.value_len));
             kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, key, kv_hdr.name_len);
             align_remain = FDB_WG_ALIGN(kv_hdr.name_len) - kv_hdr.name_len;
             while (align_remain--) {
