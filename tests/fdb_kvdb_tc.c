@@ -21,7 +21,7 @@
 #define TEST_TS_PART_NAME             "fdb_kvdb1"
 #define TEST_KV_BLOB_NAME             "kv_blob_test"
 #define TEST_KV_NAME                  "kv_test"
-#define TEST_KV_VALUE_LEN              1300 /* only save 3 KVs in a 4096 sector */
+#define TEST_KV_VALUE_LEN              1200 /* only save 3 KVs in a 4096 sector */
 #define TEST_KV_NUM                    4
 #define TEST_KVDB_SECTOR_SIZE          4096
 
@@ -165,6 +165,14 @@ static void test_fdb_change_kv(void)
     uassert_int_equal(tick, read_tick);
 }
 
+/* check the oldest address is already right when kvdb reinit */
+static void fdb_reboot(void)
+{
+    extern void test_fdb_kvdb_deinit(void);
+    test_fdb_kvdb_deinit();
+    test_fdb_kvdb_init();
+}
+
 static void test_fdb_del_kv(void)
 {
     fdb_err_t result = FDB_NO_ERR;
@@ -183,10 +191,8 @@ static void test_fdb_del_kv(void)
     uassert_null(read_value);
 
     {
-        /* check the oldest address is already right when kvdb reinit */
-        test_fdb_kvdb_deinit();
-        test_fdb_kvdb_init();
-
+        uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 0);
+        fdb_reboot();
         uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 0);
     }
 }
@@ -280,6 +286,8 @@ static void test_fdb_gc(void)
 
         test_fdb_by_kvs(kv_tbl, sizeof(kv_tbl) / sizeof(kv_tbl[0]));
         uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 0);
+        fdb_reboot();
+        uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 0);
     }
 
     {
@@ -313,6 +321,8 @@ static void test_fdb_gc(void)
         };
 
         test_fdb_by_kvs(kv_tbl, sizeof(kv_tbl) / sizeof(kv_tbl[0]));
+        uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 0);
+        fdb_reboot();
         uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 0);
     }
 
@@ -391,6 +401,8 @@ static void test_fdb_gc(void)
         };
 
         test_fdb_by_kvs(kv_tbl, sizeof(kv_tbl) / sizeof(kv_tbl[0]));
+        uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 1);
+        fdb_reboot();
         uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 1);
     }
 
@@ -490,14 +502,10 @@ static void test_fdb_gc(void)
 
         test_fdb_by_kvs(kv_tbl, sizeof(kv_tbl) / sizeof(kv_tbl[0]));
         uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 2);
+        fdb_reboot();
+        uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 2);
+
     }
-
-    /* check the oldest address is already right when kvdb reinit */
-    extern void test_fdb_kvdb_deinit(void);
-    test_fdb_kvdb_deinit();
-    test_fdb_kvdb_init();
-
-    uassert_true(RT_ALIGN_DOWN(test_kvdb.parent.oldest_addr, TEST_KVDB_SECTOR_SIZE) == TEST_KVDB_SECTOR_SIZE * 2);
 }
 
 static void test_fdb_kvdb_set_default(void)
