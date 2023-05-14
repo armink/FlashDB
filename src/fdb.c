@@ -14,6 +14,7 @@
 #include <flashdb.h>
 #include <fdb_low_lvl.h>
 #include <string.h>
+#include <inttypes.h>
 
 #define FDB_LOG_TAG ""
 
@@ -65,7 +66,10 @@ fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *path, fdb_db_t
             db->sec_size = block_size;
         } else {
             /* must be aligned with block size */
-            FDB_ASSERT(db->sec_size % block_size == 0);
+            if (db->sec_size % block_size != 0) {
+                FDB_INFO("Error: db sector size (%" PRIu32 ") MUST align with block size (%" PRIu32 ").\n", db->sec_size, block_size);
+                return FDB_INIT_FAILED;
+            }
         }
 
         db->max_size = db->storage.part->len;
@@ -75,9 +79,15 @@ fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *path, fdb_db_t
     /* the block size MUST to be the Nth power of 2 */
     FDB_ASSERT((db->sec_size & (db->sec_size - 1)) == 0);
     /* must align with sector size */
-    FDB_ASSERT(db->max_size % db->sec_size == 0);
-    /* must have more than or equal 2 sector */
-    FDB_ASSERT(db->max_size / db->sec_size >= 2);
+    if (db->max_size % db->sec_size != 0) {
+        FDB_INFO("Error: db total size (%" PRIu32 ") MUST align with sector size (%" PRIu32 ").\n", db->max_size, db->sec_size);
+        return FDB_INIT_FAILED;
+    }
+    /* must has more than or equal 2 sectors */
+    if (db->max_size / db->sec_size < 2) {
+        FDB_INFO("Error: db MUST has more than or equal 2 sectors, current has %" PRIu32 " sector(s)\n", db->max_size / db->sec_size);
+        return FDB_INIT_FAILED;
+    }
 
     return FDB_NO_ERR;
 }
