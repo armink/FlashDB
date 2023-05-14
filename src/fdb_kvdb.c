@@ -349,9 +349,9 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
         FDB_ASSERT(0);
     }
 
-    /* CRC32 data len(header.name_len + header.value_len + name + value) */
-    calc_crc32 = fdb_calc_crc32(calc_crc32, &kv_hdr.name_len, sizeof(kv_hdr.name_len));
-    calc_crc32 = fdb_calc_crc32(calc_crc32, &kv_hdr.value_len, sizeof(kv_hdr.value_len));
+    /* CRC32 data len(header.name_len + header.value_len + name + value), using sizeof(uint32_t) for compatible V1.x */
+    calc_crc32 = fdb_calc_crc32(calc_crc32, &kv_hdr.name_len, sizeof(uint32_t));
+    calc_crc32 = fdb_calc_crc32(calc_crc32, &kv_hdr.value_len, sizeof(uint32_t));
     crc_data_len = kv->len - KV_HDR_DATA_SIZE;
     /* calculate the CRC32 value */
     for (len = 0, size = 0; len < crc_data_len; len += size) {
@@ -724,7 +724,7 @@ static fdb_err_t write_kv_hdr(fdb_kvdb_t db, uint32_t addr, kv_hdr_data_t kv_hdr
         return result;
     }
     /* write other header data */
-    result = _fdb_flash_write((fdb_db_t)db, addr + KV_MAGIC_OFFSET, &kv_hdr->magic, KV_HDR_DATA_SIZE - KV_MAGIC_OFFSET, false);
+    result = _fdb_flash_write((fdb_db_t)db, addr + KV_MAGIC_OFFSET, &kv_hdr->magic, sizeof(struct kv_hdr_data) - KV_MAGIC_OFFSET, false);
 
     return result;
 }
@@ -751,7 +751,7 @@ static fdb_err_t format_sector(fdb_kvdb_t db, uint32_t addr, uint32_t combined_v
 #else   // seperate the whole "sec_hdr" program to serval sinle program operation to prevent re-program issue on STM32L4xx or
         // other MCU internal flash
         /* write the sector store status */
-        _fdb_write_status(db,
+        _fdb_write_status((fdb_db_t)db,
                           addr + SECTOR_STORE_OFFSET,
                           sec_hdr.status_table.store,
                           FDB_SECTOR_STORE_STATUS_NUM,
@@ -759,7 +759,7 @@ static fdb_err_t format_sector(fdb_kvdb_t db, uint32_t addr, uint32_t combined_v
                           true);
 
         /* write the sector dirty status */
-        _fdb_write_status(db,
+        _fdb_write_status((fdb_db_t)db,
                           addr + SECTOR_DIRTY_OFFSET,
                           sec_hdr.status_table.dirty,
                           FDB_SECTOR_DIRTY_STATUS_NUM,
@@ -770,10 +770,10 @@ static fdb_err_t format_sector(fdb_kvdb_t db, uint32_t addr, uint32_t combined_v
         sec_hdr.magic = SECTOR_MAGIC_WORD;
         sec_hdr.combined = combined_value;
         sec_hdr.reserved = FDB_DATA_UNUSED;
-        result = _fdb_flash_write(db,
+        result = _fdb_flash_write((fdb_db_t)db,
                                   addr + SECTOR_MAGIC_OFFSET,
                                   (void *)(&(sec_hdr.magic)),
-                                  (SECTOR_HDR_DATA_SIZE - SECTOR_MAGIC_OFFSET),
+                                  (sizeof(struct sector_hdr_data) - SECTOR_MAGIC_OFFSET),
                                   true);
 #endif
 
@@ -1177,8 +1177,9 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
             uint8_t ff = FDB_BYTE_ERASED;
             /* start calculate CRC32 */
             kv_hdr.crc32 = 0;
-            kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, &kv_hdr.name_len, sizeof(kv_hdr.name_len));
-            kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, &kv_hdr.value_len, sizeof(kv_hdr.value_len));
+            /* CRC32(header.name_len + header.value_len + name + value), using sizeof(uint32_t) for compatible V1.x */
+            kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, &kv_hdr.name_len, sizeof(uint32_t));
+            kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, &kv_hdr.value_len, sizeof(uint32_t));
             kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, key, kv_hdr.name_len);
             align_remain = FDB_WG_ALIGN(kv_hdr.name_len) - kv_hdr.name_len;
             while (align_remain--) {
@@ -1191,7 +1192,6 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
             }
             /* write KV header data */
             result = write_kv_hdr(db, kv_addr, &kv_hdr);
-
         }
         /* write key name */
         if (result == FDB_NO_ERR) {
