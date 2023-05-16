@@ -103,6 +103,9 @@ struct sector_hdr_data {
     uint32_t magic;                              /**< magic word(`E`, `F`, `4`, `0`) */
     uint32_t combined;                           /**< the combined next sector number, 0xFFFFFFFF: not combined */
     uint32_t reserved;
+#if (FDB_WRITE_GRAN == 64)
+    uint8_t padding[4];                          /**< align padding for 64bit write granularity */
+#endif
 };
 typedef struct sector_hdr_data *sector_hdr_data_t;
 
@@ -113,6 +116,9 @@ struct kv_hdr_data {
     uint32_t crc32;                              /**< KV node crc32(name_len + data_len + name + value) */
     uint8_t name_len;                            /**< name length */
     uint32_t value_len;                          /**< value length */
+#if (FDB_WRITE_GRAN == 64)
+    uint8_t padding[4];                          /**< align padding for 64bit write granularity */
+#endif
 };
 typedef struct kv_hdr_data *kv_hdr_data_t;
 
