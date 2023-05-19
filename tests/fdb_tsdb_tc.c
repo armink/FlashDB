@@ -53,18 +53,16 @@ static fdb_time_t get_time(void)
 
 static void test_fdb_tsdb_init_ex(void)
 {
-    if (access("/fdb_tsdb1", 0) < 0)
+    if (access(TEST_TS_PART_NAME, 0) < 0)
     {
-        mkdir("/fdb_tsdb1", 0);
+        mkdir(TEST_TS_PART_NAME, 0);
     }
-#ifndef FDB_USING_FAL_MODE
+
     uint32_t sec_size = TEST_SECTOR_SIZE, db_size = sec_size * 16;
     rt_bool_t file_mode = true;
     fdb_kvdb_control((fdb_kvdb_t)&(test_tsdb), FDB_TSDB_CTRL_SET_SEC_SIZE, &sec_size);
     fdb_kvdb_control((fdb_kvdb_t)&(test_tsdb), FDB_TSDB_CTRL_SET_FILE_MODE, &file_mode);
     fdb_kvdb_control((fdb_kvdb_t)&(test_tsdb), FDB_TSDB_CTRL_SET_MAX_SIZE, &db_size);
-#endif  
-
 
     uassert_true(fdb_tsdb_init(&test_tsdb, "test_ts", TEST_TS_PART_NAME, get_time, 128, NULL) == FDB_NO_ERR);
 }
@@ -384,5 +382,5 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_tsdb_deinit);
 }
 
-UTEST_TC_EXPORT(testcase, "packages.tools.flashdb.tsdb", utest_tc_init, utest_tc_cleanup, 20);
+UTEST_TC_EXPORT(testcase, "packages.system.flashdb.tsdb", utest_tc_init, utest_tc_cleanup, 20);
 #endif /* defined(RT_USING_UTEST) && defined(FDBTC_USING_TSDB) && defined(TC_USING_FDBTC_TSDB) */
