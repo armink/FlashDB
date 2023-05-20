@@ -16,6 +16,7 @@
 #include <flashdb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #define RT_USING_UTEST
 
@@ -222,7 +223,7 @@ static void test_fdb_create_kv(void)
     rt_tick_t tick = rt_tick_get(), read_tick;
     char value_buf[14], *read_value;
 
-    snprintf(value_buf, sizeof(value_buf), "%d", tick);
+    snprintf(value_buf, sizeof(value_buf), "%" PRIu32, tick);
     result = fdb_kv_set(&test_kvdb, TEST_KV_NAME, value_buf);
     uassert_true(result == FDB_NO_ERR);
 
@@ -243,7 +244,7 @@ static void test_fdb_change_kv(void)
     read_tick = atoi(read_value);
     uassert_int_not_equal(tick, read_tick);
 
-    snprintf(value_buf, sizeof(value_buf), "%d", tick);
+    snprintf(value_buf, sizeof(value_buf), "%" PRIu32, tick);
     result = fdb_kv_set(&test_kvdb, TEST_KV_NAME, value_buf);
     uassert_true(result == FDB_NO_ERR);
 
