@@ -222,7 +222,7 @@ static void test_tsdb_data_by_time(fdb_time_t from, fdb_time_t to)
 {
     rt_slist_t tsl_list;
     rt_slist_init(&tsl_list);
-    fdb_time_t i, cur_time = from, valid_to = to;
+    fdb_time_t i, cur_time = from, valid_to = to, last_tsl_time;
     uint32_t tsl_num, j;
 
     if (from <= to) {
@@ -263,7 +263,7 @@ static void test_tsdb_data_by_time(fdb_time_t from, fdb_time_t to)
     }
     uassert_true(tsl_num == j);
     /* check the tsl time */
-    rt_slist_for_each(node, &tsl_list)
+    for (node = (&tsl_list)->next; node != RT_NULL; node = node->next, rt_free(tls))
     {
         tls = rt_slist_entry(node, struct test_tls_data, list);
         if (from <= to) {
@@ -273,15 +273,15 @@ static void test_tsdb_data_by_time(fdb_time_t from, fdb_time_t to)
             uassert_true(tls->time == RT_ALIGN_DOWN(cur_time, TEST_TIME_STEP));
             cur_time -= TEST_TIME_STEP;
         }
-        rt_free(tls);
+        last_tsl_time = tls->time;
     }
 
     if (tsl_num > 0) {
         /* check the last tsl */
         if (from <= to) {
-            uassert_true(tls->time == RT_ALIGN_DOWN(valid_to, TEST_TIME_STEP));
+            uassert_true(last_tsl_time == RT_ALIGN_DOWN(valid_to, TEST_TIME_STEP));
         } else {
-            uassert_true(tls->time == RT_ALIGN(valid_to, TEST_TIME_STEP));
+            uassert_true(last_tsl_time == RT_ALIGN(valid_to, TEST_TIME_STEP));
         }
     }
 }
