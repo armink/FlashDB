@@ -79,9 +79,10 @@ fdb_err_t _fdb_file_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
     fdb_err_t result = FDB_NO_ERR;
     int fd = open_db_file(db, addr, false);
     if (fd > 0) {
+        /* get the offset address is relative to the start of the current file */
         addr = addr % db->sec_size;
-        lseek(fd, addr, SEEK_SET);
-        read(fd, buf, size);
+        if ((lseek(fd, addr, SEEK_SET) != addr) || (read(fd, buf, size) != size))
+            result = FDB_READ_ERR;
     } else {
         result = FDB_READ_ERR;
     }
@@ -93,16 +94,16 @@ fdb_err_t _fdb_file_write(fdb_db_t db, uint32_t addr, const void *buf, size_t si
     fdb_err_t result = FDB_NO_ERR;
     int fd = open_db_file(db, addr, false);
     if (fd > 0) {
+        /* get the offset address is relative to the start of the current file */
         addr = addr % db->sec_size;
-        lseek(fd, addr, SEEK_SET);
-        write(fd, buf, size);
+        if ((lseek(fd, addr, SEEK_SET) != addr) || (write(fd, buf, size) != size))
+            result = FDB_WRITE_ERR;
         if(sync) {
             fsync(fd);
         }
     } else {
         result = FDB_WRITE_ERR;
     }
-
     return result;
 }
 
@@ -166,8 +167,8 @@ fdb_err_t _fdb_file_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
     FILE *fp = open_db_file(db, addr, false);
     if (fp) {
         addr = addr % db->sec_size;
-        fseek(fp, addr, SEEK_SET);
-        fread(buf, size, 1, fp);
+        if ((fseek(fp, addr, SEEK_SET) != 0) || (fread(buf, size, 1, fp) != size))
+            result = FDB_READ_ERR;
     } else {
         result = FDB_READ_ERR;
     }
@@ -180,8 +181,8 @@ fdb_err_t _fdb_file_write(fdb_db_t db, uint32_t addr, const void *buf, size_t si
     FILE *fp = open_db_file(db, addr, false);
     if (fp) {
         addr = addr % db->sec_size;
-        fseek(fp, addr, SEEK_SET);
-        fwrite(buf, size, 1, fp);
+        if ((fseek(fp, addr, SEEK_SET) != 0) || (fwrite(buf, size, 1, fp) != size))
+            result = FDB_READ_ERR;
         if(sync) {
             fflush(fp);
         }
