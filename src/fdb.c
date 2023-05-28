@@ -103,8 +103,8 @@ void _fdb_init_finish(fdb_db_t db, fdb_err_t result)
             log_is_show = true;
         }
     } else if (!db->not_formatable) {
-        FDB_INFO("Error: %s (%s) is initialize fail (%d).\n", db->type == FDB_DB_TYPE_KV ? "KVDB" : "TSDB",
-                db->name, (int)result);
+        FDB_INFO("Error: %s (%s@%s) is initialize fail (%d).\n", db->type == FDB_DB_TYPE_KV ? "KVDB" : "TSDB",
+                db->name, _fdb_db_path(db), (int)result);
     }
 }
 
@@ -130,4 +130,22 @@ void _fdb_deinit(fdb_db_t db)
     }
 
     db->init_ok = false;
+}
+
+const char *_fdb_db_path(fdb_db_t db)
+{
+    if (db->file_mode) {
+#ifdef FDB_USING_FILE_MODE
+        return db->storage.dir;
+#else
+        return NULL;
+#endif
+    }
+    else {
+#ifdef FDB_USING_FAL_MODE
+        return db->storage.part->name;
+#else
+        return NULL;
+#endif
+    }
 }

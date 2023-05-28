@@ -19,7 +19,7 @@
 #define FDB_LOG_TAG "[kv]"
 /* rewrite log prefix */
 #undef  FDB_LOG_PREFIX2
-#define FDB_LOG_PREFIX2()                         FDB_PRINT("[%s] ", db_name(db))
+#define FDB_LOG_PREFIX2()                         FDB_PRINT("[%s][%s] ", db_name(db), _fdb_db_path((fdb_db_t)db))
 
 #if defined(FDB_USING_KVDB)
 
@@ -276,7 +276,8 @@ static uint32_t find_next_kv_addr(fdb_kvdb_t db, uint32_t start, uint32_t end)
 #endif /* FDB_KV_USING_CACHE */
 
     for (; start < end && start + sizeof(buf) < end; start += (sizeof(buf) - sizeof(uint32_t))) {
-        _fdb_flash_read((fdb_db_t)db, start, (uint32_t *) buf, sizeof(buf));
+        if (_fdb_flash_read((fdb_db_t)db, start, (uint32_t *) buf, sizeof(buf)) != FDB_NO_ERR)
+            return FAILED_ADDR;
         for (i = 0; i < sizeof(buf) - sizeof(uint32_t) && start + i < end; i++) {
 #ifndef FDB_BIG_ENDIAN            /* Little Endian Order */
             magic = buf[i] + (buf[i + 1] << 8) + (buf[i + 2] << 16) + (buf[i + 3] << 24);
