@@ -221,11 +221,11 @@ static void update_kv_cache(fdb_kvdb_t db, const char *name, size_t name_len, ui
     if (empty_index < FDB_KV_CACHE_TABLE_SIZE) {
         db->kv_cache_table[empty_index].addr = addr;
         db->kv_cache_table[empty_index].name_crc = name_crc;
-        db->kv_cache_table[empty_index].active = 0;
+        db->kv_cache_table[empty_index].active = FDB_KV_CACHE_TABLE_SIZE;
     } else if (min_activity_index < FDB_KV_CACHE_TABLE_SIZE) {
         db->kv_cache_table[min_activity_index].addr = addr;
         db->kv_cache_table[min_activity_index].name_crc = name_crc;
-        db->kv_cache_table[min_activity_index].active = 0;
+        db->kv_cache_table[min_activity_index].active = FDB_KV_CACHE_TABLE_SIZE;
     }
 }
 
