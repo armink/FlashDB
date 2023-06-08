@@ -1586,7 +1586,7 @@ static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
  *
  * @return result
  */
-fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
+static fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
 {
     fdb_err_t result = FDB_NO_ERR;
     struct fdb_kv kv;
