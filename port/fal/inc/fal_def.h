@@ -13,6 +13,9 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#ifdef FDB_USING_NATIVE_ASSERT
+#include <assert.h>
+#endif
 
 #define FAL_SW_VERSION                 "0.5.99"
 
@@ -50,6 +53,7 @@
 #endif
 
 #if FAL_DEBUG
+#ifndef FDB_USING_NATIVE_ASSERT
 #ifdef assert
 #undef assert
 #endif
@@ -59,6 +63,7 @@ if (!(EXPR))                                                                   \
     FAL_PRINTF("(%s) has assert failed at %s.\n", #EXPR, __func__ );        \
     while (1);                                                                 \
 }
+#endif
 
 /* debug level log */
 #ifdef  log_d
@@ -69,10 +74,12 @@ if (!(EXPR))                                                                   \
 
 #else
 
+#ifndef FDB_USING_NATIVE_ASSERT
 #ifdef assert
 #undef assert
 #endif
 #define assert(EXPR)                   ((void)0);
+#endif
 
 /* debug level log */
 #ifdef  log_d
