@@ -81,7 +81,8 @@ fdb_err_t _fdb_file_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
     if (fd > 0) {
         /* get the offset address is relative to the start of the current file */
         addr = addr % db->sec_size;
-        if ((lseek(fd, addr, SEEK_SET) != addr) || (read(fd, buf, size) != size))
+        if ((lseek(fd, addr, SEEK_SET) != (int32_t)addr)
+            || (read(fd, buf, size) != (ssize_t)size))
             result = FDB_READ_ERR;
     } else {
         result = FDB_READ_ERR;
@@ -96,7 +97,8 @@ fdb_err_t _fdb_file_write(fdb_db_t db, uint32_t addr, const void *buf, size_t si
     if (fd > 0) {
         /* get the offset address is relative to the start of the current file */
         addr = addr % db->sec_size;
-        if ((lseek(fd, addr, SEEK_SET) != addr) || (write(fd, buf, size) != size))
+        if ((lseek(fd, addr, SEEK_SET) != (int32_t)addr)
+            || (write(fd, buf, size) != (ssize_t)size))
             result = FDB_WRITE_ERR;
         if(sync) {
             fsync(fd);
