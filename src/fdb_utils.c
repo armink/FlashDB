@@ -252,6 +252,7 @@ size_t fdb_blob_read(fdb_db_t db, fdb_blob_t blob)
 extern fdb_err_t _fdb_file_read(fdb_db_t db, uint32_t addr, void *buf, size_t size);
 extern fdb_err_t _fdb_file_write(fdb_db_t db, uint32_t addr, const void *buf, size_t size, bool sync);
 extern fdb_err_t _fdb_file_erase(fdb_db_t db, uint32_t addr, size_t size);
+extern fdb_err_t _fdb_file_close(fdb_db_t db);
 #endif /* FDB_USING_FILE_LIBC */
 
 fdb_err_t _fdb_flash_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
