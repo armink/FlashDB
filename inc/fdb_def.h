@@ -12,6 +12,10 @@
 #ifndef _FDB_DEF_H_
 #define _FDB_DEF_H_
 
+#ifdef FDB_USING_NATIVE_ASSERT
+#include <assert.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
