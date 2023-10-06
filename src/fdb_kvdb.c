@@ -341,7 +341,7 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
     kv->status = (fdb_kv_status_t) _fdb_get_status(kv_hdr.status_table, FDB_KV_STATUS_NUM);
     kv->len = kv_hdr.len;
 
-    if (kv->len == ~0UL || kv->len > db_max_size(db) || kv->len < KV_HDR_DATA_SIZE) {
+    if (kv->len == UINT32_MAX || kv->len > db_max_size(db) || kv->len < KV_HDR_DATA_SIZE) {
         /* the KV length was not write, so reserved the info for current KV */
         kv->len = KV_HDR_DATA_SIZE;
         if (kv->status != FDB_KV_ERR_HDR) {
