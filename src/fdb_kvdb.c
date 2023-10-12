@@ -1597,8 +1597,7 @@ static fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
     /* check all sector header */
     sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &check_failed_count, db, check_sec_hdr_cb, false);
     if (db->parent.not_formatable && check_failed_count > 0) {
-        result = FDB_READ_ERR;
-        goto __exit;
+        return FDB_READ_ERR;
     }
     /* all sector header check failed */
     if (check_failed_count == SECTOR_NUM) {
@@ -1621,7 +1620,6 @@ __retry:
 
     db->in_recovery_check = false;
 
-__exit:
     /* unlock the KV cache */
     db_unlock(db);
 

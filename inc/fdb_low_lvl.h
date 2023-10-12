@@ -29,9 +29,9 @@
 /* Return the most contiguous size aligned at specified width. RT_ALIGN(13, 4)
  * would return 16.
  */
-#define FDB_ALIGN(size, align)                    ((size + align - 1) - ((size + align -1) % align))
+#define FDB_ALIGN(size, align)                    (((size) + (align) - 1) - (((size) + (align) -1) % (align)))
 /* align by write granularity */
-#define FDB_WG_ALIGN(size)                        (FDB_ALIGN(size, (FDB_WRITE_GRAN + 7)/8))
+#define FDB_WG_ALIGN(size)                        (FDB_ALIGN(size, ((FDB_WRITE_GRAN + 7)/8)))
 /**
  * Return the down number of aligned at specified width. RT_ALIGN_DOWN(13, 4)
  * would return 12.
