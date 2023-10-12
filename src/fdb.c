@@ -16,6 +16,12 @@
 #include <string.h>
 #include <inttypes.h>
 
+#ifdef FDB_USING_FILE_POSIX_MODE
+#if !defined(_MSC_VER)
+#include <unistd.h>
+#endif
+#endif /* FDB_USING_FILE_POSIX_MODE */
+
 #define FDB_LOG_TAG ""
 
 #if !defined(FDB_USING_FAL_MODE) && !defined(FDB_USING_FILE_MODE)
@@ -116,9 +122,6 @@ void _fdb_deinit(fdb_db_t db)
 #ifdef FDB_USING_FILE_MODE
 #ifdef FDB_USING_FILE_POSIX_MODE
         if (db->cur_file > 0) {
-#if !defined(_MSC_VER)
-#include <unistd.h>
-#endif
             close(db->cur_file);
         }
 #else
