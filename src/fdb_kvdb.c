@@ -348,7 +348,7 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
         kv->len = KV_HDR_DATA_SIZE;
         if (kv->status != FDB_KV_ERR_HDR) {
             kv->status = FDB_KV_ERR_HDR;
-            FDB_DEBUG("Error: The KV @0x%08" PRIX32 " length has an error.\n", kv->addr.start);
+            FDB_INFO("Error: The KV @0x%08" PRIX32 " length has an error.\n", kv->addr.start);
             _fdb_write_status((fdb_db_t)db, kv->addr.start, kv_hdr.status_table, FDB_KV_STATUS_NUM, FDB_KV_ERR_HDR, true);
         }
         kv->crc_is_ok = false;
@@ -375,8 +375,13 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
     }
     /* check CRC32 */
     if (calc_crc32 != kv_hdr.crc32) {
+        size_t name_len = kv_hdr.name_len > FDB_KV_NAME_MAX ? FDB_KV_NAME_MAX : kv_hdr.name_len;
         kv->crc_is_ok = false;
         result = FDB_READ_ERR;
+        /* try read the KV name, maybe read name has error */
+        kv_name_addr = kv->addr.start + KV_HDR_DATA_SIZE;
+        _fdb_flash_read((fdb_db_t)db, kv_name_addr, (uint32_t *)kv->name, FDB_WG_ALIGN(name_len));
+        FDB_INFO("Error: Read the KV (%.*s@0x%08" PRIX32 ") CRC32 check failed!\n", name_len, kv->name, kv->addr.start);
     } else {
         kv->crc_is_ok = true;
         /* the name is behind aligned KV header */
@@ -439,11 +444,9 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
             sector->remain = db_sec_size(db) - SECTOR_HDR_DATA_SIZE;
             kv_obj.addr.start = sector->addr + SECTOR_HDR_DATA_SIZE;
             do {
-
                 read_kv(db, &kv_obj);
                 if (!kv_obj.crc_is_ok) {
                     if (kv_obj.status != FDB_KV_PRE_WRITE && kv_obj.status != FDB_KV_ERR_HDR) {
-                        FDB_INFO("Error: The KV (@0x%08" PRIX32 ") CRC32 check failed!\n", kv_obj.addr.start);
                         sector->remain = 0;
                         result = FDB_READ_ERR;
                         break;
