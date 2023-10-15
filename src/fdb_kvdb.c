@@ -837,7 +837,8 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
     sec_addr = db_oldest_addr(db);
     do {
         traversed_len += db_sec_size(db);
-        if (FDB_NO_ERR != read_sector_info(db, sec_addr, sector, false))return;
+        if (FDB_NO_ERR != read_sector_info(db, sec_addr, sector, false))
+            return;
         if (status == FDB_SECTOR_STORE_UNUSED || status == sector->status.store) {
             if (traversal_kv) {
                 if (FDB_NO_ERR != read_sector_info(db, sec_addr, sector, true))return;
