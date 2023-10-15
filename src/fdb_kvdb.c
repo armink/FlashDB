@@ -841,7 +841,8 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
             return;
         if (status == FDB_SECTOR_STORE_UNUSED || status == sector->status.store) {
             if (traversal_kv) {
-                if (FDB_NO_ERR != read_sector_info(db, sec_addr, sector, true))return;
+                if (FDB_NO_ERR != read_sector_info(db, sec_addr, sector, true))
+                    return;
             }
             /* iterator is interrupted when callback return true */
             if (callback && callback(sector, arg1, arg2)) {
