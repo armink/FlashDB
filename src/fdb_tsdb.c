@@ -386,7 +386,13 @@ static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob)
     fdb_err_t result = FDB_NO_ERR;
     fdb_time_t cur_time = db->get_time();
 
-    FDB_ASSERT(blob->size <= db->max_len);
+    /* check the append length, MUST less than the db->max_len */
+    if(blob->size > db->max_len)
+    {
+        FDB_INFO("Warning: append length (%" PRIdMAX ") is more than the db->max_len (%" PRIdMAX "). This tsl will be dropped.\n", 
+                (intmax_t)blob->size, (intmax_t)(db->max_len));
+        return FDB_WRITE_ERR;
+    }
 
     /* check the current timestamp, MUST more than the last save timestamp */
     if (cur_time <= db->last_time) {
@@ -690,7 +696,7 @@ size_t fdb_tsl_query_count(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_ts
 
     if (!db_init_ok(db)) {
         FDB_INFO("Error: TSL (%s) isn't initialize OK.\n", db_name(db));
-        return FDB_INIT_FAILED;
+        return 0;
     }
 
     fdb_tsl_iter_by_time(db, from, to, query_count_cb, &arg);
