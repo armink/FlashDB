@@ -58,8 +58,10 @@
 /* the sector is not combined value */
 #if (FDB_BYTE_ERASED  == 0xFF)
 #define SECTOR_NOT_COMBINED                      0xFFFFFFFF
+#define SECTOR_COMBINED                          0x00000000
 #else
 #define SECTOR_NOT_COMBINED                      0x00000000
+#define SECTOR_COMBINED                          0xFFFFFFFF
 #endif
 /* the next address is get failed */
 #define FAILED_ADDR                              0xFFFFFFFF
@@ -101,7 +103,7 @@ struct sector_hdr_data {
         uint8_t dirty[FDB_DIRTY_STATUS_TABLE_SIZE];  /**< sector dirty status @see fdb_sector_dirty_status_t */
     } status_table;
     uint32_t magic;                              /**< magic word(`E`, `F`, `4`, `0`) */
-    uint32_t combined;                           /**< the combined next sector number, 0xFFFFFFFF: not combined */
+    uint32_t combined;                           /**< the combined next sector number, default: not combined */
     uint32_t reserved;
 #if (FDB_WRITE_GRAN == 64)
     uint8_t padding[4];                          /**< align padding for 64bit write granularity */
@@ -111,7 +113,7 @@ typedef struct sector_hdr_data *sector_hdr_data_t;
 
 struct kv_hdr_data {
     uint8_t status_table[KV_STATUS_TABLE_SIZE];  /**< KV node status, @see fdb_kv_status_t */
-    uint32_t magic;                              /**< magic word(`K`, `V`, `4`, `0`) */
+    uint32_t magic;                              /**< magic word(`K`, `V`, `0`, `0`) */
     uint32_t len;                                /**< KV node total length (header + name + value), must align by FDB_WRITE_GRAN */
     uint32_t crc32;                              /**< KV node crc32(name_len + data_len + name + value) */
     uint8_t name_len;                            /**< name length */
@@ -406,8 +408,9 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
 
     sector->addr = addr;
     sector->magic = sec_hdr.magic;
-    /* check magic word */
-    if (sector->magic != SECTOR_MAGIC_WORD) {
+    /* check magic word and combined value */
+    if (sector->magic != SECTOR_MAGIC_WORD || 
+        (sec_hdr.combined != SECTOR_NOT_COMBINED && sec_hdr.combined != SECTOR_COMBINED)) {
         sector->check_ok = false;
         sector->combined = SECTOR_NOT_COMBINED;
         return FDB_INIT_FAILED;
