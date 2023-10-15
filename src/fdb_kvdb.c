@@ -1833,7 +1833,7 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
                 }
                 do {
                     read_kv(db, kv);
-                    if (kv->status == FDB_KV_WRITE) {
+                    if (kv->status == FDB_KV_WRITE && kv->crc_is_ok == true) {
                         /* We got a valid kv here. */
                         /* If iterator statistics is needed */
                         itr->iterated_cnt++;
