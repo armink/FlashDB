@@ -355,7 +355,6 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
         return FDB_READ_ERR;
     } else if (kv->len > db_sec_size(db) - SECTOR_HDR_DATA_SIZE && kv->len < db_max_size(db)) {
         //TODO Sector continuous mode, or the write length is not written completely
-        FDB_ASSERT(0);
     }
 
     /* CRC32 data len(header.name_len + header.value_len + name + value), using sizeof(uint32_t) for compatible V1.x */
