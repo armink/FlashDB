@@ -37,7 +37,6 @@ static void get_db_file_path(fdb_db_t db, uint32_t addr, char *path, size_t size
 #if defined(FDB_USING_FILE_POSIX_MODE)
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/ioctl.h>
 #include <fcntl.h>
 #if !defined(_MSC_VER)
 #include <unistd.h>
