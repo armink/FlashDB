@@ -28,6 +28,7 @@ static void get_db_file_path(fdb_db_t db, uint32_t addr, char *path, size_t size
     snprintf(file_name, sizeof(file_name), "%.*s.fdb.%d", DB_NAME_MAX, db->name, index);
     if (strlen(db->storage.dir) + 1 + strlen(file_name) >= size) {
         /* path is too long */
+        FDB_INFO("Error: db (%s) file path (%s) is too log.\n", file_name, db->storage.dir);
         FDB_ASSERT(0)
     }
     snprintf(path, size, "%s/%s", db->storage.dir, file_name);
@@ -36,6 +37,7 @@ static void get_db_file_path(fdb_db_t db, uint32_t addr, char *path, size_t size
 #if defined(FDB_USING_FILE_POSIX_MODE)
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <fcntl.h>
 #if !defined(_MSC_VER)
 #include <unistd.h>
@@ -81,8 +83,8 @@ fdb_err_t _fdb_file_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
     if (fd > 0) {
         /* get the offset address is relative to the start of the current file */
         addr = addr % db->sec_size;
-        if ((lseek(fd, addr, SEEK_SET) != (int32_t)addr)
-            || (read(fd, buf, size) != (ssize_t)size))
+
+        if ((lseek(fd, addr, SEEK_SET) != (int32_t)addr) || (read(fd, buf, size) != (ssize_t)size))
             result = FDB_READ_ERR;
     } else {
         result = FDB_READ_ERR;
@@ -97,8 +99,8 @@ fdb_err_t _fdb_file_write(fdb_db_t db, uint32_t addr, const void *buf, size_t si
     if (fd > 0) {
         /* get the offset address is relative to the start of the current file */
         addr = addr % db->sec_size;
-        if ((lseek(fd, addr, SEEK_SET) != (int32_t)addr)
-            || (write(fd, buf, size) != (ssize_t)size))
+
+        if ((lseek(fd, addr, SEEK_SET) != (int32_t)addr) || (write(fd, buf, size) != (ssize_t)size))
             result = FDB_WRITE_ERR;
         if(sync) {
             fsync(fd);
