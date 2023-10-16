@@ -410,6 +410,8 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
     /* read sector header raw data */
     _fdb_flash_read((fdb_db_t)db, addr, (uint32_t *)&sec_hdr, sizeof(struct sector_hdr_data));
 
+    sector->status.store = FDB_SECTOR_STORE_UNUSED;
+    sector->status.dirty = FDB_SECTOR_DIRTY_UNUSED;
     sector->addr = addr;
     sector->magic = sec_hdr.magic;
     /* check magic word and combined value */
@@ -837,12 +839,10 @@ static void sector_iterator(fdb_kvdb_t db, kv_sec_info_t sector, fdb_sector_stor
     sec_addr = db_oldest_addr(db);
     do {
         traversed_len += db_sec_size(db);
-        if (FDB_NO_ERR != read_sector_info(db, sec_addr, sector, false))
-            return;
+        read_sector_info(db, sec_addr, sector, false);
         if (status == FDB_SECTOR_STORE_UNUSED || status == sector->status.store) {
             if (traversal_kv) {
-                if (FDB_NO_ERR != read_sector_info(db, sec_addr, sector, true))
-                    return;
+                read_sector_info(db, sec_addr, sector, true);
             }
             /* iterator is interrupted when callback return true */
             if (callback && callback(sector, arg1, arg2)) {
