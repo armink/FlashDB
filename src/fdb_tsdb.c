@@ -25,8 +25,8 @@
 
 #if defined(FDB_USING_TSDB)
 
-#if (FDB_WRITE_GRAN == 64)
-#error "Flash 64 bits write granularity is not supported in TSDB yet!"
+#if (FDB_WRITE_GRAN == 64) || (FDB_WRITE_GRAN == 128)
+#error "Flash 64 or 128 bits write granularity is not supported in TSDB yet!"
 #endif
 
 /* magic word(`T`, `S`, `L`, `0`) */
