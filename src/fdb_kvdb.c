@@ -1098,9 +1098,11 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
         gc->cur_free_size += db_sec_size(db) - SECTOR_HDR_DATA_SIZE;
         FDB_DEBUG("Collect a sector @0x%08" PRIX32 "\n", sector->addr);
         /* update oldest_addr for next GC sector format */
-        db_oldest_addr(db) = get_next_sector_addr(db, sector, gc->traversed_len);
-        if (gc->cur_free_size >= gc->setting_free_size)
+        db_oldest_addr(db) = get_next_sector_addr(db, sector, 0);        
+        if ((gc->cur_free_size >= gc->setting_free_size) || (get_next_sector_addr(db, sector, gc->traversed_len) == FAILED_ADDR))
+        {
             return true;
+        }
     }
 
     return false;
