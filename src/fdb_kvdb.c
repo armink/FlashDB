@@ -1078,7 +1078,6 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
     struct gc_cb_args *gc = (struct gc_cb_args *)arg1;
     fdb_kvdb_t db = gc->db;
 
-    gc->traversed_len += db_sec_size(db);
     if (sector->check_ok && (sector->status.dirty == FDB_SECTOR_DIRTY_TRUE || sector->status.dirty == FDB_SECTOR_DIRTY_GC)) {
         uint8_t status_table[FDB_DIRTY_STATUS_TABLE_SIZE];
         /* change the sector status to GC */
@@ -1098,11 +1097,9 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
         gc->cur_free_size += db_sec_size(db) - SECTOR_HDR_DATA_SIZE;
         FDB_DEBUG("Collect a sector @0x%08" PRIX32 "\n", sector->addr);
         /* update oldest_addr for next GC sector format */
-        db_oldest_addr(db) = get_next_sector_addr(db, sector, 0);        
-        if ((gc->cur_free_size >= gc->setting_free_size) || (get_next_sector_addr(db, sector, gc->traversed_len) == FAILED_ADDR))
-        {
+        db_oldest_addr(db) = get_next_sector_addr(db, sector, 0);
+        if (gc->cur_free_size >= gc->setting_free_size)
             return true;
-        }
     }
 
     return false;
