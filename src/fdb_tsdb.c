@@ -381,10 +381,10 @@ static fdb_err_t update_sec_status(fdb_tsdb_t db, tsdb_sec_info_t sector, fdb_bl
     return result;
 }
 
-static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob)
+static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t *timestamp)
 {
     fdb_err_t result = FDB_NO_ERR;
-    fdb_time_t cur_time = db->get_time();
+    fdb_time_t cur_time = timestamp == NULL ? db->get_time() : *timestamp;
 
     /* check the append length, MUST less than the db->max_len */
     if(blob->size > db->max_len)
@@ -441,7 +441,31 @@ fdb_err_t fdb_tsl_append(fdb_tsdb_t db, fdb_blob_t blob)
     }
 
     db_lock(db);
-    result = tsl_append(db, blob);
+    result = tsl_append(db, blob, NULL);
+    db_unlock(db);
+
+    return result;
+}
+
+/**
+ * Append a new log to TSDB with specific timestamp.
+ *
+ * @param db database object
+ * @param blob log blob data
+ *
+ * @return result
+ */
+fdb_err_t fdb_tsl_append_with_ts(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t timestamp)
+{
+    fdb_err_t result = FDB_NO_ERR;
+
+    if (!db_init_ok(db)) {
+        FDB_INFO("Error: TSL (%s) isn't initialize OK.\n", db_name(db));
+        return FDB_INIT_FAILED;
+    }
+
+    db_lock(db);
+    result = tsl_append(db, blob, &timestamp);
     db_unlock(db);
 
     return result;
