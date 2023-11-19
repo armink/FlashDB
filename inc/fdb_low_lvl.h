@@ -36,7 +36,7 @@
  * Return the down number of aligned at specified width. RT_ALIGN_DOWN(13, 4)
  * would return 12.
  */
-#define FDB_ALIGN_DOWN(size, align)               ((size) & ~((align) - 1))
+#define FDB_ALIGN_DOWN(size, align)               (((size) / (align)) * (align))
 /* align down by write granularity */
 #define FDB_WG_ALIGN_DOWN(size)                   (FDB_ALIGN_DOWN(size, (FDB_WRITE_GRAN + 7)/8))
 
