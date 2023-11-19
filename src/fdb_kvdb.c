@@ -1897,4 +1897,50 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
     return false;
 }
 
+/**
+ * The database inergrity check
+ *
+ * @param db database object
+ *
+ * @return result, FDB_NO_ERR: check OK
+ */
+fdb_err_t fdb_kvdb_check(fdb_kvdb_t db)
+{
+    fdb_err_t result = FDB_NO_ERR;
+    uint32_t sec_addr, traversed_len = 0;
+    struct kvdb_sec_info sector;
+    struct fdb_kv kv;
+
+    if (!db_init_ok(db)) {
+        FDB_INFO("Error: KV (%s) isn't initialize OK.\n", db_name(db));
+        return FDB_INIT_FAILED;
+    }
+
+    /* lock the KV cache */
+    db_lock(db);
+
+    sec_addr = db_oldest_addr(db);
+    /* search all sectors */
+    do {
+        traversed_len += db_sec_size(db);
+        result = read_sector_info(db, sec_addr, &sector, false);
+        if (result == FDB_NO_ERR)
+        {
+            /* sector has KV */
+            if (sector.status.store == FDB_SECTOR_STORE_USING || sector.status.store == FDB_SECTOR_STORE_FULL) {
+                kv.addr.start = sector.addr + SECTOR_HDR_DATA_SIZE;
+                /* search all KV */
+                do {
+                    result = read_kv(db, &kv);
+                } while ((kv.addr.start = get_next_kv_addr(db, &sector, &kv)) != FAILED_ADDR && result == FDB_NO_ERR);
+            }
+        }
+    } while ((sec_addr = get_next_sector_addr(db, &sector, traversed_len)) != FAILED_ADDR && result == FDB_NO_ERR);
+
+    /* unlock the KV cache */
+    db_unlock(db);
+
+    return result;
+}
+
 #endif /* defined(FDB_USING_KVDB) */
