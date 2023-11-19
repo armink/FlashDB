@@ -927,13 +927,13 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
 
     FDB_ASSERT(get_time);
 
-    /* lock the TSDB */
-    db_lock(db);
-
     result = _fdb_init_ex((fdb_db_t)db, name, path, FDB_DB_TYPE_TS, user_data);
     if (result != FDB_NO_ERR) {
         goto __exit;
     }
+
+    /* lock the TSDB */
+    db_lock(db);
 
     db->get_time = get_time;
     db->max_len = max_len;
@@ -995,12 +995,12 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
         db->last_time = sec.end_time;
     }
 
+    /* unlock the TSDB */
+    db_unlock(db);
+
 __exit:
 
     _fdb_init_finish((fdb_db_t)db, result);
-
-    /* unlock the TSDB */
-    db_unlock(db);
 
     return result;
 }

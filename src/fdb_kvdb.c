@@ -1754,13 +1754,13 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
     /* must be aligned with write granularity */
     FDB_ASSERT((FDB_STR_KV_VALUE_MAX_SIZE * 8) % FDB_WRITE_GRAN == 0);
 
-    /* lock the KVDB */
-    db_lock(db);
-
     result = _fdb_init_ex((fdb_db_t) db, name, path, FDB_DB_TYPE_KV, user_data);
     if (result != FDB_NO_ERR) {
         goto __exit;
     }
+
+    /* lock the KVDB */
+    db_lock(db);
 
     db->gc_request = false;
     db->in_recovery_check = false;
@@ -1805,12 +1805,12 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
     }
 #endif
 
+    /* unlock the KVDB */
+    db_unlock(db);
+
 __exit:
 
     _fdb_init_finish((fdb_db_t)db, result);
-
-    /* unlock the KVDB */
-    db_unlock(db);
 
     return result;
 }
