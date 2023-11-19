@@ -403,12 +403,13 @@ static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t *timestam
 
     result = update_sec_status(db, &db->cur_sec, blob, cur_time);
     if (result != FDB_NO_ERR) {
+        FDB_INFO("Error: update the sector status failed (%d)", result);
         return result;
     }
-
     /* write the TSL node */
     result = write_tsl(db, blob, cur_time);
     if (result != FDB_NO_ERR) {
+        FDB_INFO("Error: write tsl failed (%d)", result);
         return result;
     }
 
