@@ -69,13 +69,15 @@ extern "C" {
 #ifdef FDB_USING_NATIVE_ASSERT
 #define FDB_ASSERT(EXPR)               assert(EXPR);
 #else
+#ifndef FDB_ASSERT
 #define FDB_ASSERT(EXPR)                                                      \
 if (!(EXPR))                                                                  \
 {                                                                             \
     FDB_INFO("(%s) has assert failed at %s.\n", #EXPR, __func__);             \
     while (1);                                                                \
 }
-#endif
+#endif /* FDB_ASSERT */
+#endif /* FDB_USING_NATIVE_ASSERT */
 
 #define FDB_KVDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command, this change MUST before database initialization */
 #define FDB_KVDB_CTRL_GET_SEC_SIZE     0x01             /**< get sector size control command */
@@ -252,12 +254,6 @@ struct kv_cache_node {
 };
 typedef struct kv_cache_node *kv_cache_node_t;
 
-struct sector_cache_node {
-    uint32_t addr;                               /**< sector start address */
-    uint32_t empty_addr;                         /**< sector empty address */
-};
-typedef struct sector_cache_node *sector_cache_node_t;
-
 /* database structure */
 typedef struct fdb_db *fdb_db_t;
 struct fdb_db {
@@ -305,7 +301,7 @@ struct fdb_kvdb {
     /* KV cache table */
     struct kv_cache_node kv_cache_table[FDB_KV_CACHE_TABLE_SIZE];
     /* sector cache table, it caching the sector info which status is current using */
-    struct sector_cache_node sector_cache_table[FDB_SECTOR_CACHE_TABLE_SIZE];
+    struct kvdb_sec_info sector_cache_table[FDB_SECTOR_CACHE_TABLE_SIZE];
 #endif /* FDB_KV_USING_CACHE */
 
 #ifdef FDB_KV_AUTO_UPDATE
