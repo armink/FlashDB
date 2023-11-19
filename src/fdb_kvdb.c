@@ -981,7 +981,7 @@ static fdb_err_t move_kv(fdb_kvdb_t db, fdb_kv_t kv)
     }
 
     if ((kv_addr = alloc_kv(db, &sector, kv->len)) != FAILED_ADDR) {
-        if (db->in_recovery_check) {
+        if (db->in_recovery_check && kv->status == FDB_KV_PRE_DELETE) {
             struct fdb_kv kv_bak;
             char name[FDB_KV_NAME_MAX + 1] = { 0 };
             strncpy(name, kv->name, kv->name_len);
