@@ -47,6 +47,11 @@ extern "C" {
 #define FDB_USING_FILE_MODE
 #endif
 
+/* the file cache table size, it will improve GC speed in file mode when using cache */
+#ifndef FDB_FILE_CACHE_TABLE_SIZE
+#define FDB_FILE_CACHE_TABLE_SIZE    2
+#endif
+
 #ifndef FDB_WRITE_GRAN
 #define FDB_WRITE_GRAN 1
 #endif
@@ -274,11 +279,12 @@ struct fdb_db {
     bool file_mode;                              /**< is file mode, default is false */
     bool not_formatable;                         /**< is can NOT be formated mode, default is false */
 #ifdef FDB_USING_FILE_MODE
+    uint32_t cur_file_sec[FDB_FILE_CACHE_TABLE_SIZE];/**< last operate sector address  */
 #if defined(FDB_USING_FILE_POSIX_MODE)
-    int cur_file;                                /**< current file object */
+    int cur_file[FDB_FILE_CACHE_TABLE_SIZE];     /**< current file object */
 #elif defined(FDB_USING_FILE_LIBC_MODE)
-    FILE *cur_file;                              /**< current file object */
-#endif
+    FILE *cur_file[FDB_FILE_CACHE_TABLE_SIZE];   /**< current file object */
+#endif /* FDB_USING_FILE_MODE */
     uint32_t cur_sec;                            /**< current operate sector address  */
 #endif
     void (*lock)(fdb_db_t db);                   /**< lock the database operate */

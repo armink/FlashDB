@@ -44,13 +44,14 @@ fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *path, fdb_db_t
 
     if (db->file_mode) {
 #ifdef FDB_USING_FILE_MODE
+        memset(db->cur_file_sec, FDB_FAILED_ADDR, FDB_FILE_CACHE_TABLE_SIZE * sizeof(db->cur_file_sec[0]));
         /* must set when using file mode */
         FDB_ASSERT(db->sec_size != 0);
         FDB_ASSERT(db->max_size != 0);
 #ifdef FDB_USING_FILE_POSIX_MODE
-        db->cur_file = -1;
+        memset(db->cur_file, -1, FDB_FILE_CACHE_TABLE_SIZE * sizeof(db->cur_file[0]));
 #else
-        db->cur_file = 0;
+        memset(db->cur_file, 0, FDB_FILE_CACHE_TABLE_SIZE * sizeof(db->cur_file[0]));
 #endif
         db->storage.dir = path;
         FDB_ASSERT(strlen(path) != 0)
@@ -120,15 +121,17 @@ void _fdb_deinit(fdb_db_t db)
 
     if (db->init_ok) {
 #ifdef FDB_USING_FILE_MODE
+        for (int i = 0; i < FDB_FILE_CACHE_TABLE_SIZE; i++) {
 #ifdef FDB_USING_FILE_POSIX_MODE
-        if (db->cur_file > 0) {
-            close(db->cur_file);
-        }
+            if (db->cur_file[i] > 0) {
+                close(db->cur_file[i]);
+            }
 #else
-        if (db->cur_file != 0) {
-            fclose(db->cur_file);
-        }
+            if (db->cur_file[i] != 0) {
+                fclose(db->cur_file[i]);
+            }
 #endif /* FDB_USING_FILE_POSIX_MODE */
+        }
 #endif /* FDB_USING_FILE_MODE */
     }
 

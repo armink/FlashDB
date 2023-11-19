@@ -50,6 +50,9 @@
 #define FDB_DATA_UNUSED                      0x00000000
 #endif
 
+/* invalid address */
+#define FDB_FAILED_ADDR                      0xFFFFFFFF
+
 size_t _fdb_set_status(uint8_t status_table[], size_t status_num, size_t status_index);
 size_t _fdb_get_status(uint8_t status_table[], size_t status_num);
 uint32_t _fdb_continue_ff_addr(fdb_db_t db, uint32_t start, uint32_t end);

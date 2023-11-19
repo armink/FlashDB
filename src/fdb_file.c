@@ -42,37 +42,81 @@ static void get_db_file_path(fdb_db_t db, uint32_t addr, char *path, size_t size
 #include <unistd.h>
 #endif
 
+static int get_file_from_cache(fdb_db_t db, uint32_t sec_addr)
+{
+    for (int i = 0; i < FDB_FILE_CACHE_TABLE_SIZE; i++) {
+        if (db->cur_file_sec[i] == sec_addr)
+            return db->cur_file[i];
+    }
+
+    return -1;
+}
+
+static void update_file_cache(fdb_db_t db, uint32_t sec_addr, int fd)
+{
+    int free_index = FDB_FILE_CACHE_TABLE_SIZE;
+
+    for (int i = 0; i < FDB_FILE_CACHE_TABLE_SIZE; i++) {
+        if (db->cur_file_sec[i] == sec_addr) {
+            db->cur_file[i] = fd;
+            return;
+        } else if (db->cur_file[i] == -1) {
+            free_index = i;
+        }
+    }
+
+    if (fd > 0) {
+        if (free_index < FDB_FILE_CACHE_TABLE_SIZE) {
+                db->cur_file[free_index] = fd;
+                db->cur_file_sec[free_index] = sec_addr;
+        } else {
+            /* cache is full, move to end */
+            for (int i = FDB_FILE_CACHE_TABLE_SIZE - 1; i > 0; i--) {
+                close(db->cur_file[i]);
+                memcpy(&db->cur_file[i], &db->cur_file[i - 1], sizeof(db->cur_file[0]));
+                memcpy(&db->cur_file_sec[i], &db->cur_file_sec[i - 1], sizeof(db->cur_file_sec[0]));
+            }
+            /* add to head */
+            db->cur_file[0] = fd;
+            db->cur_file_sec[0] = sec_addr;
+        }
+    }
+}
+
 static int open_db_file(fdb_db_t db, uint32_t addr, bool clean)
 {
     uint32_t sec_addr = FDB_ALIGN_DOWN(addr, db->sec_size);
-    int fd = db->cur_file;
+    int fd = get_file_from_cache(db, sec_addr);
     char path[DB_PATH_MAX];
 
-    if (sec_addr != db->cur_sec || fd <= 0 || clean) {
+    if (fd <= 0 || clean) {
         get_db_file_path(db, addr, path, DB_PATH_MAX);
 
         if (fd > 0) {
             close(fd);
             fd = -1;
+            update_file_cache(db, sec_addr, fd);
         }
         if (clean) {
             /* clean the old file */
-            fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0777);
-            if (fd <= 0) {
+            int clean_fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0777);
+            if (clean_fd <= 0) {
                 FDB_INFO("Error: open (%s) file failed.\n", path);
             }
             else {
-                close(fd);
-                fd = -1;
+                close(clean_fd);
+                clean_fd = -1;
             }
         }
-        /* open the database file */
-        fd = open(path, O_RDWR, 0777);
+        if (get_file_from_cache(db, sec_addr) < 0) {
+            /* open the database file */
+            fd = open(path, O_RDWR, 0777);
+            update_file_cache(db, sec_addr, fd);
+        }
         db->cur_sec = sec_addr;
     }
-    db->cur_file = fd;
 
-    return db->cur_file;
+    return fd;
 }
 
 fdb_err_t _fdb_file_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
@@ -133,35 +177,84 @@ fdb_err_t _fdb_file_erase(fdb_db_t db, uint32_t addr, size_t size)
     return result;
 }
 #elif defined(FDB_USING_FILE_LIBC_MODE)
+
+static FILE *get_file_from_cache(fdb_db_t db, uint32_t sec_addr)
+{
+    for (int i = 0; i < FDB_FILE_CACHE_TABLE_SIZE; i++) {
+        if (db->cur_file_sec[i] == sec_addr)
+            return db->cur_file[i];
+    }
+
+    return NULL;
+}
+
+static void update_file_cache(fdb_db_t db, uint32_t sec_addr, FILE *fd)
+{
+    int free_index = FDB_FILE_CACHE_TABLE_SIZE;
+
+    for (int i = 0; i < FDB_FILE_CACHE_TABLE_SIZE; i++) {
+        if (db->cur_file_sec[i] == sec_addr) {
+            db->cur_file[i] = fd;
+            return;
+        }
+        else if (db->cur_file[i] == 0) {
+            free_index = i;
+        }
+    }
+
+    if (fd) {
+        if (free_index < FDB_FILE_CACHE_TABLE_SIZE) {
+            db->cur_file[free_index] = fd;
+            db->cur_file_sec[free_index] = sec_addr;
+        }
+        else {
+            /* cache is full, move to end */
+            for (int i = FDB_FILE_CACHE_TABLE_SIZE - 1; i > 0; i--) {
+                close(db->cur_file[i]);
+                memcpy(&db->cur_file[i], &db->cur_file[i - 1], sizeof(db->cur_file[0]));
+                memcpy(&db->cur_file_sec[i], &db->cur_file_sec[i - 1], sizeof(db->cur_file_sec[0]));
+            }
+            /* add to head */
+            db->cur_file[0] = fd;
+            db->cur_file_sec[0] = sec_addr;
+        }
+    }
+}
+
 static FILE *open_db_file(fdb_db_t db, uint32_t addr, bool clean)
 {
     uint32_t sec_addr = FDB_ALIGN_DOWN(addr, db->sec_size);
+    FILE *fd = get_file_from_cache(db, sec_addr);
+    char path[DB_PATH_MAX];
 
-    if (sec_addr != db->cur_sec || db->cur_file == NULL || clean) {
-        char path[DB_PATH_MAX];
-
+    if (fd == NULL || clean) {
         get_db_file_path(db, addr, path, DB_PATH_MAX);
 
-        if (db->cur_file) {
-            fclose(db->cur_file);
+        if (fd) {
+            fclose(fd);
+            fd = NULL;
+            update_file_cache(db, sec_addr, fd);
         }
 
         if (clean) {
             /* clean the old file */
-            db->cur_file = fopen(path, "wb+");
-            if (db->cur_file == NULL) {
+            FILE *clean_fd = fopen(path, "wb+");
+            if (clean_fd == NULL) {
                 FDB_INFO("Error: open (%s) file failed.\n", path);
             } else {
-                fclose(db->cur_file);
+                fclose(clean_fd);
+                clean_fd = NULL;
             }
         }
-
-        /* open the database file */
-        db->cur_file = fopen(path, "rb+");
+        if (get_file_from_cache(db, sec_addr) == NULL) {
+            /* open the database file */
+            fd = fopen(path, "rb+");
+            update_file_cache(db, sec_addr, fd);
+        }
         db->cur_sec = sec_addr;
     }
 
-    return db->cur_file;
+    return fd;
 }
 
 fdb_err_t _fdb_file_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
