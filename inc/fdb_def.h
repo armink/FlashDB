@@ -21,8 +21,8 @@ extern "C" {
 #endif
 
 /* software version number */
-#define FDB_SW_VERSION                 "2.0.0"
-#define FDB_SW_VERSION_NUM             0x20000
+#define FDB_SW_VERSION                 "2.1.0"
+#define FDB_SW_VERSION_NUM             0x20100
 
 /* the KV max name length must less then it */
 #ifndef FDB_KV_NAME_MAX
