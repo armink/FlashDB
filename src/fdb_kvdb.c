@@ -1645,8 +1645,6 @@ static fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
         fdb_kv_set_default(db);
     }
 
-    /* lock the KV cache */
-    db_lock(db);
     /* check all sector header for recovery GC */
     sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, db, NULL, check_and_recovery_gc_cb, false);
 
@@ -1659,9 +1657,6 @@ __retry:
     }
 
     db->in_recovery_check = false;
-
-    /* unlock the KV cache */
-    db_unlock(db);
 
     return result;
 }
