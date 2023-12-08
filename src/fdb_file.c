@@ -210,7 +210,7 @@ static void update_file_cache(fdb_db_t db, uint32_t sec_addr, FILE *fd)
         else {
             /* cache is full, move to end */
             for (int i = FDB_FILE_CACHE_TABLE_SIZE - 1; i > 0; i--) {
-                close(db->cur_file[i]);
+                fclose(db->cur_file[i]);
                 memcpy(&db->cur_file[i], &db->cur_file[i - 1], sizeof(db->cur_file[0]));
                 memcpy(&db->cur_file_sec[i], &db->cur_file_sec[i - 1], sizeof(db->cur_file_sec[0]));
             }
