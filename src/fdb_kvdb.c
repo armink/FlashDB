@@ -485,8 +485,8 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
 #ifdef FDB_KV_USING_CACHE
         update_sector_cache(db, sector);
     } else {
-        kv_sec_info_t sector_cache = get_sector_from_cache(db, sector->addr);
-        if (!sector_cache) {
+        kv_sec_info_t sec_cache = get_sector_from_cache(db, sector->addr);
+        if (!sec_cache) {
             sector->empty_kv = FAILED_ADDR;
             sector->remain = 0;
             update_sector_cache(db, sector);
