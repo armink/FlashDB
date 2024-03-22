@@ -1399,11 +1399,6 @@ fdb_err_t fdb_kv_set_default(fdb_kvdb_t db)
     db_lock(db);
 
 #ifdef FDB_KV_USING_CACHE
-    for (i = 0; i < FDB_SECTOR_CACHE_TABLE_SIZE; i++) {
-        db->sector_cache_table[i].check_ok = false;
-        db->sector_cache_table[i].empty_kv = FAILED_ADDR;
-        db->sector_cache_table[i].addr = FDB_DATA_UNUSED;
-    }
     for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
         db->kv_cache_table[i].addr = FDB_DATA_UNUSED;
     }
