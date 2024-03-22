@@ -1397,6 +1397,13 @@ fdb_err_t fdb_kv_set_default(fdb_kvdb_t db)
 
     /* lock the KV cache */
     db_lock(db);
+
+#ifdef FDB_KV_USING_CACHE
+    for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
+        db->kv_cache_table[i].addr = FDB_DATA_UNUSED;
+    }
+#endif /* FDB_KV_USING_CACHE */
+
     /* format all sectors */
     for (addr = 0; addr < db_max_size(db); addr += db_sec_size(db)) {
         result = format_sector(db, addr, SECTOR_NOT_COMBINED);
