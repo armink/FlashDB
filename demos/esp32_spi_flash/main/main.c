@@ -11,7 +11,9 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_system.h"
-#include "esp_spi_flash.h"
+#include "esp_flash_spi_init.h"
+#include "spi_flash_mmap.h"
+#include "esp_chip_info.h"
 
 #include <flashdb.h>
 
@@ -144,8 +146,10 @@ void app_main()
            chip_info.cores);
 
     printf("silicon revision %d, ", chip_info.revision);
+    uint32_t size_flash_chip;
+    esp_flash_get_size(NULL, &size_flash_chip);
 
-    printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
+    printf("%ldMB %s flash\n", size_flash_chip / (1024 * 1024),
            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     flashdb_demo();
