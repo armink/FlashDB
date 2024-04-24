@@ -74,7 +74,7 @@ fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *path, fdb_db_t
         } else {
             /* must be aligned with block size */
             if (db->sec_size % block_size != 0) {
-                FDB_INFO("Error: db sector size (%" PRIu32 ") MUST align with block size (%" PRIu32 ").\n", db->sec_size, block_size);
+                FDB_INFO("Error: db sector size (%" PRIu32 ") MUST align with block size (%zu).\n", db->sec_size, block_size);
                 return FDB_INIT_FAILED;
             }
         }

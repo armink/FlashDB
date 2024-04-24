@@ -21,7 +21,7 @@
 #define FDB_LOG_TAG "[sample][tsdb]"
 
 #ifdef FDB_USING_TIMESTAMP_64BIT
-#define __PRITS "ld"
+#define __PRITS "lld"
 #else
 #define __PRITS "d"
 #endif
