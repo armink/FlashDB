@@ -1798,9 +1798,11 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
 #endif /* FDB_KV_USING_CACHE */
 
     FDB_DEBUG("KVDB size is %" PRIu32 " bytes.\n", db_max_size(db));
-
+    db_unlock(db);
+    
     result = _fdb_kv_load(db);
-
+    
+    db_lock(db);
 #ifdef FDB_KV_AUTO_UPDATE
     if (result == FDB_NO_ERR) {
         kv_auto_update(db);
