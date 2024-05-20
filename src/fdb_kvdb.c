@@ -1396,7 +1396,7 @@ fdb_err_t fdb_kv_set_default(fdb_kvdb_t db)
     struct kvdb_sec_info sector;
 
     /* lock the KV cache */
-    db_lock(db);
+ //   db_lock(db);
 
 #ifdef FDB_KV_USING_CACHE
     for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
@@ -1430,7 +1430,7 @@ fdb_err_t fdb_kv_set_default(fdb_kvdb_t db)
 __exit:
     db_oldest_addr(db) = 0;
     /* unlock the KV cache */
-    db_unlock(db);
+ //   db_unlock(db);
 
     return result;
 }
@@ -1798,11 +1798,9 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
 #endif /* FDB_KV_USING_CACHE */
 
     FDB_DEBUG("KVDB size is %" PRIu32 " bytes.\n", db_max_size(db));
-    db_unlock(db);
-    
+
     result = _fdb_kv_load(db);
-    
-    db_lock(db);
+
 #ifdef FDB_KV_AUTO_UPDATE
     if (result == FDB_NO_ERR) {
         kv_auto_update(db);
