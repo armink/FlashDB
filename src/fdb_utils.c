@@ -304,7 +304,7 @@ fdb_err_t _fdb_flash_write(fdb_db_t db, uint32_t addr, const void *buf, size_t s
 #ifdef FDB_USING_FILE_MODE
         return _fdb_file_write(db, addr, buf, size, sync);
 #else
-        return FDB_READ_ERR;
+        return FDB_WRITE_ERR;
 #endif /* FDB_USING_FILE_MODE */
     } else {
 #ifdef FDB_USING_FAL_MODE
