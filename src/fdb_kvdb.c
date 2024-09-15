@@ -1380,7 +1380,11 @@ fdb_err_t fdb_kv_set(fdb_kvdb_t db, const char *key, const char *value)
 {
     struct fdb_blob blob;
 
-    return fdb_kv_set_blob(db, key, fdb_blob_make(&blob, value, strlen(value)));
+    if (value) {
+        return fdb_kv_set_blob(db, key, fdb_blob_make(&blob, value, strlen(value)));
+    } else {
+        return fdb_kv_del(db, key);
+    }
 }
 
 /**
