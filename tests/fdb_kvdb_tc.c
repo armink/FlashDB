@@ -179,13 +179,15 @@ static void test_fdb_create_kv_blob(void)
 static void test_fdb_change_kv_blob(void)
 {
     fdb_err_t result = FDB_NO_ERR;
-    rt_tick_t tick = rt_tick_get(), read_tick;
+    rt_tick_t tick = 0, read_tick;
     size_t read_len;
     struct fdb_blob blob_obj, *blob = &blob_obj;
 
     read_len = fdb_kv_get_blob(&test_kvdb, TEST_KV_BLOB_NAME, fdb_blob_make(&blob_obj, &read_tick, sizeof(read_tick)));
     uassert_int_equal(blob->saved.len, sizeof(read_tick));
     uassert_int_equal(blob->saved.len, read_len);
+    rt_thread_mdelay(1);
+    tick = rt_tick_get();
     uassert_int_not_equal(tick, read_tick);
 
     result = fdb_kv_set_blob(&test_kvdb, TEST_KV_BLOB_NAME, fdb_blob_make(&blob_obj, &tick, sizeof(tick)));
@@ -200,13 +202,15 @@ static void test_fdb_change_kv_blob(void)
 static void test_fdb_del_kv_blob(void)
 {
     fdb_err_t result = FDB_NO_ERR;
-    rt_tick_t tick = rt_tick_get(), read_tick;
+    rt_tick_t tick = 0, read_tick;
     size_t read_len;
     struct fdb_blob blob;
 
     read_len = fdb_kv_get_blob(&test_kvdb, TEST_KV_BLOB_NAME, fdb_blob_make(&blob, &read_tick, sizeof(read_tick)));
     uassert_int_equal(blob.saved.len, sizeof(read_tick));
     uassert_int_equal(blob.saved.len, read_len);
+    rt_thread_mdelay(1);
+    tick = rt_tick_get();
     uassert_int_not_equal(tick, read_tick);
 
     result = fdb_kv_set_blob(&test_kvdb, TEST_KV_BLOB_NAME, fdb_blob_make(&blob, NULL, 0));
@@ -236,12 +240,14 @@ static void test_fdb_create_kv(void)
 static void test_fdb_change_kv(void)
 {
     fdb_err_t result = FDB_NO_ERR;
-    rt_tick_t tick = rt_tick_get(), read_tick;
+    rt_tick_t tick = 0, read_tick;
     char value_buf[14], *read_value;
 
     read_value = fdb_kv_get(&test_kvdb, TEST_KV_NAME);
     uassert_not_null(read_value);
     read_tick = atoi(read_value);
+    rt_thread_mdelay(1);
+    tick = rt_tick_get();
     uassert_int_not_equal(tick, read_tick);
 
     snprintf(value_buf, sizeof(value_buf), "%" PRIu32, tick);
@@ -264,12 +270,14 @@ static void fdb_reboot(void)
 static void test_fdb_del_kv(void)
 {
     fdb_err_t result = FDB_NO_ERR;
-    rt_tick_t tick = rt_tick_get(), read_tick;
+    rt_tick_t tick = 0, read_tick;
     char *read_value;
 
     read_value = fdb_kv_get(&test_kvdb, TEST_KV_NAME);
     uassert_not_null(read_value);
     read_tick = atoi(read_value);
+    rt_thread_mdelay(1);
+    tick = rt_tick_get();
     uassert_int_not_equal(tick, read_tick);
 
     result = fdb_kv_del(&test_kvdb, TEST_KV_NAME);

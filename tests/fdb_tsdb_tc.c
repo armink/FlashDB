@@ -60,11 +60,25 @@ static void test_fdb_tsdb_init_ex(void)
 
     uint32_t sec_size = TEST_SECTOR_SIZE, db_size = sec_size * 16;
     rt_bool_t file_mode = true;
-    fdb_kvdb_control((fdb_kvdb_t)&(test_tsdb), FDB_TSDB_CTRL_SET_SEC_SIZE, &sec_size);
-    fdb_kvdb_control((fdb_kvdb_t)&(test_tsdb), FDB_TSDB_CTRL_SET_FILE_MODE, &file_mode);
-    fdb_kvdb_control((fdb_kvdb_t)&(test_tsdb), FDB_TSDB_CTRL_SET_MAX_SIZE, &db_size);
+
+    memset(&test_tsdb, 0, sizeof(struct fdb_tsdb));
+    fdb_tsdb_control((fdb_tsdb_t)&(test_tsdb), FDB_TSDB_CTRL_SET_SEC_SIZE, &sec_size);
+    fdb_tsdb_control((fdb_tsdb_t)&(test_tsdb), FDB_TSDB_CTRL_SET_FILE_MODE, &file_mode);
+    fdb_tsdb_control((fdb_tsdb_t)&(test_tsdb), FDB_TSDB_CTRL_SET_MAX_SIZE, &db_size);
 
     uassert_true(fdb_tsdb_init(&test_tsdb, "test_ts", TEST_TS_PART_NAME, get_time, 128, NULL) == FDB_NO_ERR);
+}
+
+static void test_fdb_tsdb_deinit(void)
+{
+    uassert_true(fdb_tsdb_deinit(&test_tsdb) == FDB_NO_ERR);
+}
+
+/* check reboot status */
+static void fdb_reboot(void)
+{
+    test_fdb_tsdb_deinit();
+    test_fdb_tsdb_init_ex();
 }
 
 static void test_fdb_tsl_append(void)
@@ -101,6 +115,7 @@ static bool test_fdb_tsl_iter_cb(fdb_tsl_t tsl, void *arg)
 
 static void test_fdb_tsl_iter(void)
 {
+    fdb_reboot();
     fdb_tsl_iter(&test_tsdb, test_fdb_tsl_iter_cb, NULL);
 }
 
@@ -108,6 +123,7 @@ static void test_fdb_tsl_iter_by_time(void)
 {
     fdb_time_t from = 0, to = TEST_TS_COUNT * TEST_TIME_STEP - 1;
 
+    fdb_reboot();
     for (fdb_time_t cur = from; cur <= to; cur += TEST_TIME_STEP) {
         fdb_tsl_iter_by_time(&test_tsdb, cur, cur, test_fdb_tsl_iter_cb, &cur);
     }
@@ -118,6 +134,7 @@ static void test_fdb_tsl_query_count(void)
 {
     fdb_time_t from = 0, to = TEST_TS_COUNT * TEST_TIME_STEP;
 
+    fdb_reboot();
     uassert_true(fdb_tsl_query_count(&test_tsdb, from, to, FDB_TSL_WRITE) == TEST_TS_COUNT);
 }
 
@@ -138,6 +155,7 @@ static void test_fdb_tsl_set_status(void)
 {
     fdb_time_t from = 0, to = TEST_TS_COUNT * TEST_TIME_STEP;
 
+    fdb_reboot();
     fdb_tsl_iter_by_time(&test_tsdb, from, to, est_fdb_tsl_set_status_cb, &test_tsdb);
 
     uassert_true(fdb_tsl_query_count(&test_tsdb, from, to, FDB_TSL_USER_STATUS1) == TEST_TS_USER_STATUS1_COUNT);
@@ -158,8 +176,13 @@ static void test_fdb_tsl_clean(void)
     size_t count = 0;
 
     cur_times = 0;
-    fdb_tsl_clean(&test_tsdb);
 
+    fdb_reboot();
+    fdb_tsl_clean(&test_tsdb);
+    fdb_tsl_iter(&test_tsdb, test_fdb_tsl_clean_cb, &count);
+    uassert_true(count == 0);
+
+    fdb_reboot();
     fdb_tsl_iter(&test_tsdb, test_fdb_tsl_clean_cb, &count);
 
     uassert_true(count == 0);
@@ -286,6 +309,29 @@ static void test_tsdb_data_by_time(fdb_time_t from, fdb_time_t to)
     }
 }
 
+static void test_fdb_tsl_sector_bound_test(int start_sec_index, int end_sec_index)
+{
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].start_time - 1, test_secs_info[end_sec_index].end_time + 1);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].start_time - 1, test_secs_info[end_sec_index].end_time + 0);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].start_time - 1, test_secs_info[end_sec_index].end_time - 1);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].start_time + 0, test_secs_info[end_sec_index].end_time + 1);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].start_time + 0, test_secs_info[end_sec_index].end_time + 0);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].start_time + 0, test_secs_info[end_sec_index].end_time - 1);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].start_time + 1, test_secs_info[end_sec_index].end_time + 1);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].start_time + 1, test_secs_info[end_sec_index].end_time + 0);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].start_time + 1, test_secs_info[end_sec_index].end_time - 1);
+
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].end_time - 1, test_secs_info[end_sec_index].start_time + 1);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].end_time - 1, test_secs_info[end_sec_index].start_time + 0);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].end_time - 1, test_secs_info[end_sec_index].start_time - 1);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].end_time + 0, test_secs_info[end_sec_index].start_time + 1);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].end_time + 0, test_secs_info[end_sec_index].start_time + 0);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].end_time + 0, test_secs_info[end_sec_index].start_time - 1);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].end_time + 1, test_secs_info[end_sec_index].start_time + 1);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].end_time + 1, test_secs_info[end_sec_index].start_time + 0);
+    test_tsdb_data_by_time(test_secs_info[start_sec_index].end_time + 1, test_secs_info[end_sec_index].start_time - 1);
+}
+
 static void test_fdb_tsl_iter_by_time_1(void)
 {
     struct fdb_blob blob;
@@ -296,6 +342,9 @@ static void test_fdb_tsl_iter_by_time_1(void)
     for (data = 0; data < 800; data++) {
         fdb_tsl_append(&test_tsdb, fdb_blob_make(&blob, &data, sizeof(data)));
     }
+
+    fdb_reboot();
+
     /* init all test sectors info */
     for (i = 0; i < sizeof(test_secs_info) / sizeof(test_secs_info[0]); i++) {
         test_secs_info[i].addr = TEST_SECTOR_SIZE * i;
@@ -347,25 +396,64 @@ static void test_fdb_tsl_iter_by_time_1(void)
     test_tsdb_data_by_time(test_secs_info[0].end_time, test_secs_info[0].start_time);
 
     /* check 1~2 sector */
-    test_tsdb_data_by_time(test_secs_info[0].start_time - 1, test_secs_info[1].end_time);
-    test_tsdb_data_by_time(test_secs_info[0].start_time + 1, test_secs_info[1].end_time);
-    test_tsdb_data_by_time(test_secs_info[0].end_time + 1, test_secs_info[1].end_time);
-    test_tsdb_data_by_time(test_secs_info[1].end_time + 1, test_secs_info[0].start_time);
-    test_tsdb_data_by_time(test_secs_info[1].end_time - 1, test_secs_info[0].start_time);
-    test_tsdb_data_by_time(test_secs_info[1].start_time - 1, test_secs_info[0].start_time);
+    test_fdb_tsl_sector_bound_test(0, 0);
+    test_fdb_tsl_sector_bound_test(0, 1);
+    test_fdb_tsl_sector_bound_test(1, 0);
+    test_fdb_tsl_sector_bound_test(1, 1);
 
     /* check more than 2 sectors */
-    test_tsdb_data_by_time(test_secs_info[0].start_time - 1, test_secs_info[2].end_time);
-    test_tsdb_data_by_time(test_secs_info[0].start_time + 1, test_secs_info[2].end_time);
-    test_tsdb_data_by_time(test_secs_info[0].end_time + 1, test_secs_info[2].end_time);
-    test_tsdb_data_by_time(test_secs_info[2].end_time + 1, test_secs_info[0].start_time);
-    test_tsdb_data_by_time(test_secs_info[2].end_time - 1, test_secs_info[0].start_time);
-    test_tsdb_data_by_time(test_secs_info[2].start_time - 1, test_secs_info[0].start_time);
+    test_fdb_tsl_sector_bound_test(0, 2);
+    test_fdb_tsl_sector_bound_test(2, 0);
+    test_fdb_tsl_sector_bound_test(2, 2);
 }
 
-static void test_fdb_tsdb_deinit(void)
+static void test_fdb_github_issue_249(void)
 {
-    uassert_true(fdb_tsdb_deinit(&test_tsdb) == FDB_NO_ERR);
+    if (access("storage_tsdb", 0) < 0)
+    {
+        mkdir("storage_tsdb", 0);
+    }
+
+    uint32_t sec_size = 16 * 1024, db_size = 512 * 1024, test_data_size = 0;
+    rt_bool_t file_mode = true, flag_not_format = false;
+    struct fdb_blob blob;
+    uint8_t *data = NULL;
+
+    memset(&test_tsdb, 0, sizeof(struct fdb_tsdb));
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_SEC_SIZE, &sec_size);
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_FILE_MODE, &file_mode);
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_NOT_FORMAT, &flag_not_format);
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_MAX_SIZE, &db_size);
+
+    uassert_true(fdb_tsdb_init(&test_tsdb, "storage_tsdb", "storage_tsdb", get_time, 10*1024, NULL) == FDB_NO_ERR);
+    /* clean status */
+    fdb_tsl_clean(&test_tsdb);
+    cur_times = 0;
+
+    test_data_size = 7 * 1024;
+    data = rt_malloc(test_data_size);
+    uassert_true(data != NULL);
+    uassert_true(fdb_tsl_append(&test_tsdb, fdb_blob_make(&blob, data, test_data_size)) == FDB_NO_ERR);
+    rt_free(data);
+
+    test_data_size = 8 * 1024;
+    data = rt_malloc(test_data_size);
+    uassert_true(data != NULL);
+    uassert_true(fdb_tsl_append(&test_tsdb, fdb_blob_make(&blob, data, test_data_size)) == FDB_NO_ERR);
+    rt_free(data);
+
+    test_data_size = 9 * 1024;
+    data = rt_malloc(test_data_size);
+    uassert_true(data != NULL);
+    uassert_true(fdb_tsl_append(&test_tsdb, fdb_blob_make(&blob, data, test_data_size)) == FDB_NO_ERR);
+    rt_free(data);
+
+    { /* reboot simulation */
+        uassert_true(fdb_tsdb_deinit(&test_tsdb) == FDB_NO_ERR);
+        uassert_true(fdb_tsdb_init(&test_tsdb, "storage_tsdb", "storage_tsdb", get_time, 10 * 1024, NULL) == FDB_NO_ERR);
+    }
+    uassert_true(fdb_tsl_query_count(&test_tsdb, 2, 6, FDB_TSL_WRITE) == 3);
+    uassert_true(fdb_tsl_query_count(&test_tsdb, 0, INT32_MAX, FDB_TSL_WRITE) == 3);
 }
 
 static void testcase(void)
@@ -380,7 +468,9 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_tsl_clean);
     UTEST_UNIT_RUN(test_fdb_tsl_iter_by_time_1);
     UTEST_UNIT_RUN(test_fdb_tsdb_deinit);
+
+    UTEST_UNIT_RUN(test_fdb_github_issue_249);
 }
 
-UTEST_TC_EXPORT(testcase, "packages.system.flashdb.tsdb", utest_tc_init, utest_tc_cleanup, 20);
+UTEST_TC_EXPORT(testcase, "packages.system.flashdb.tsdb", utest_tc_init, utest_tc_cleanup, 60);
 #endif /* defined(RT_USING_UTEST) && defined(FDBTC_USING_TSDB) && defined(TC_USING_FDBTC_TSDB) */
