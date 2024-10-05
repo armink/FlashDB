@@ -35,6 +35,8 @@
 #define SECTOR_MAGIC_WORD                        0x30424446
 /* magic word(`K`, `V`, `0`, `0`) */
 #define KV_MAGIC_WORD                            0x3030564B
+/* GC minimum number of empty sectors. GC will using at least 1 empty sector. */
+#define GC_MIN_EMPTY_SEC_NUM                     1
 
 /* the sector remain threshold before full status */
 #ifndef FDB_SEC_REMAIN_THRESHOLD
@@ -135,9 +137,8 @@ struct alloc_kv_cb_args {
 
 struct gc_cb_args {
     fdb_kvdb_t db;
-    size_t cur_free_size;
     size_t setting_free_size;
-    uint32_t traversed_len;
+    size_t last_gc_sec_addr;
 };
 
 static void gc_collect(fdb_kvdb_t db);
@@ -1071,7 +1072,7 @@ __retry:
 
     if ((empty_kv = alloc_kv(db, sector, kv_size)) == FAILED_ADDR) {
         if (db->gc_request && !already_gc) {
-            FDB_INFO("Warning: Alloc an KV (size %" PRIu32 ") failed when new KV. Now will GC then retry.\n", (uint32_t)kv_size);
+            FDB_DEBUG("Alloc an KV (size %" PRIu32 ") failed when new KV. Now will GC then retry.\n", (uint32_t)kv_size);
             gc_collect_by_free_size(db, kv_size);
             already_gc = true;
             goto __retry;
@@ -1093,10 +1094,12 @@ static uint32_t new_kv_ex(fdb_kvdb_t db, kv_sec_info_t sector, size_t key_len, s
 
 static bool gc_check_cb(kv_sec_info_t sector, void *arg1, void *arg2)
 {
-    size_t *empty_sec = arg1;
+    size_t *empty_sec_num = arg1;
+    uint32_t *empty_sec_addr = arg2;
 
     if (sector->check_ok) {
-        *empty_sec = *empty_sec + 1;
+        *empty_sec_num = *empty_sec_num + 1;
+        *empty_sec_addr = sector->addr;
     }
 
     return false;
@@ -1108,6 +1111,7 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
     struct fdb_kv kv;
     struct gc_cb_args *gc = (struct gc_cb_args *)arg1;
     fdb_kvdb_t db = gc->db;
+    uint32_t last_gc_sec_addr = 0;
 
     if (sector->check_ok && (sector->status.dirty == FDB_SECTOR_DIRTY_TRUE || sector->status.dirty == FDB_SECTOR_DIRTY_GC)) {
         uint8_t status_table[FDB_DIRTY_STATUS_TABLE_SIZE];
@@ -1122,15 +1126,22 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
                 if (move_kv(db, &kv) != FDB_NO_ERR) {
                     FDB_INFO("Error: Moved the KV (%.*s) for GC failed.\n", kv.name_len, kv.name);
                 }
+            } else {
+                FDB_DEBUG("KV (%.*s) is garbage NOT need move, collect it.\n", kv.name_len, kv.name);
             }
         } while ((kv.addr.start = get_next_kv_addr(db, sector, &kv)) != FAILED_ADDR);
         format_sector(db, sector->addr, SECTOR_NOT_COMBINED);
-        gc->cur_free_size += db_sec_size(db) - SECTOR_HDR_DATA_SIZE;
-        FDB_DEBUG("Collect a sector @0x%08" PRIX32 "\n", sector->addr);
+        last_gc_sec_addr = gc->last_gc_sec_addr;
+        gc->last_gc_sec_addr = sector->addr;
         /* update oldest_addr for next GC sector format */
         db_oldest_addr(db) = get_next_sector_addr(db, sector, 0);
-        if (gc->cur_free_size >= gc->setting_free_size)
-            return true;
+        FDB_DEBUG("Collect a sector @0x%08" PRIX32 "\n", sector->addr);
+        /* the collect new space is in last GC sector */
+        struct kvdb_sec_info last_gc_sector;
+        if (read_sector_info(db, last_gc_sec_addr, &last_gc_sector, true) == FDB_NO_ERR) {
+            if (last_gc_sector.remain > gc->setting_free_size)
+                return true;
+        }
     }
 
     return false;
@@ -1139,15 +1150,17 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
 static void gc_collect_by_free_size(fdb_kvdb_t db, size_t free_size)
 {
     struct kvdb_sec_info sector;
-    size_t empty_sec = 0;
-    struct gc_cb_args arg = { db, 0, free_size, 0 };
+    size_t empty_sec_num = 0;
+    /* an empty sector address */
+    uint32_t empty_sec_addr = 0;
 
     /* GC check the empty sector number */
-    sector_iterator(db, &sector, FDB_SECTOR_STORE_EMPTY, &empty_sec, NULL, gc_check_cb, false);
+    sector_iterator(db, &sector, FDB_SECTOR_STORE_EMPTY, &empty_sec_num, &empty_sec_addr, gc_check_cb, false);
 
     /* do GC collect */
-    FDB_DEBUG("The remain empty sector is %" PRIu32 ", GC threshold is %" PRIdLEAST16 ".\n", (uint32_t)empty_sec, FDB_GC_EMPTY_SEC_THRESHOLD);
-    if (empty_sec <= FDB_GC_EMPTY_SEC_THRESHOLD) {
+    FDB_DEBUG("The remain empty sector is %" PRIu32 ", GC threshold is %" PRIdLEAST16 ".\n", (uint32_t)empty_sec_num, FDB_GC_EMPTY_SEC_THRESHOLD);
+    if (empty_sec_num <= FDB_GC_EMPTY_SEC_THRESHOLD) {
+        struct gc_cb_args arg = { db, free_size, empty_sec_addr };
         sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &arg, NULL, do_gc, false);
     }
 
@@ -1580,7 +1593,7 @@ static bool check_sec_hdr_cb(kv_sec_info_t sector, void *arg1, void *arg2)
         if (db->parent.not_formatable) {
             return true;
         } else {
-            FDB_INFO("Sector header info is incorrect. Auto format this sector (0x%08" PRIX32 ").\n", sector->addr);
+            FDB_DEBUG("Sector header info is incorrect. Auto format this sector (0x%08" PRIX32 ").\n", sector->addr);
             format_sector(db, sector->addr, SECTOR_NOT_COMBINED);
         }
     }
