@@ -238,10 +238,12 @@ static fdb_err_t read_sector_info(fdb_tsdb_t db, uint32_t addr, tsdb_sec_info_t 
 
         tsl.addr.index = sector->empty_idx;
         while (read_tsl(db, &tsl) == FDB_NO_ERR) {
-            if (tsl.status == FDB_TSL_UNUSED || tsl.status == FDB_TSL_PRE_WRITE) {
+            if (tsl.status == FDB_TSL_UNUSED) {
                 break;
             }
-            sector->end_time = tsl.time;
+            if (tsl.status != FDB_TSL_PRE_WRITE) {
+                sector->end_time = tsl.time;
+            }
             sector->end_idx = tsl.addr.index;
             sector->empty_idx += LOG_IDX_DATA_SIZE;
             sector->empty_data -= FDB_WG_ALIGN(tsl.log_len);
