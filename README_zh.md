@@ -1,6 +1,6 @@
 ![](docs/_media/flashdb.png)
 
-![GitHub Action](https://github.com/armink/FlashDB/workflows/AutoTestCI/badge.svg) [![license](https://img.shields.io/github/license/armink/FlashDB)](https://raw.githubusercontent.com/armink/FlashDB/master/LICENSE) [![docs](https://img.shields.io/badge/docs-perfect-blue)](http://armink.gitee.io/flashdb/#/zh-cn/ )
+![GitHub Action](https://github.com/armink/FlashDB/workflows/AutoTestCI/badge.svg) [![license](https://img.shields.io/github/license/armink/FlashDB)](https://raw.githubusercontent.com/armink/FlashDB/master/LICENSE) [![docs](https://img.shields.io/badge/docs-perfect-blue)](https://www.bookstack.cn/read/flashdb-2.1-zh/README.md )
 
 [EN](README.md) | 中文
 
@@ -74,14 +74,14 @@ Query total spent 1475 (ms) for 13422 TSL, min 0, max 1, average: 0.11 ms/per
 
 ## 如何使用
 
-FlashDB 提供了全面的文档说明，详见：http://armink.gitee.io/flashdb/#/zh-cn/ 
+FlashDB 提供了全面的文档说明，详见：https://www.bookstack.cn/read/flashdb-2.1-zh/README.md 
 
 快速访问：
 
-- [快速上手文档](http://armink.gitee.io/flashdb/#/zh-cn/quick-started)
-- [移植文档](http://armink.gitee.io/flashdb/#/zh-cn/porting)
-- [配置文档](http://armink.gitee.io/flashdb/#/zh-cn/configuration)
-- [API 文档](http://armink.gitee.io/flashdb/#/zh-cn/api)
+- [快速上手文档](https://www.bookstack.cn/read/flashdb-2.1-zh/quick-started.md)
+- [移植文档](https://www.bookstack.cn/read/flashdb-2.1-zh/porting.md)
+- [配置文档](https://www.bookstack.cn/read/flashdb-2.1-zh/configuration.md)
+- [API 文档](https://www.bookstack.cn/read/flashdb-2.1-zh/configuration.md)
 
 ## 支持
 
