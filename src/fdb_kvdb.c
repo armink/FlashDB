@@ -391,7 +391,7 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
         /* try read the KV name, maybe read name has error */
         kv_name_addr = kv->addr.start + KV_HDR_DATA_SIZE;
         _fdb_flash_read((fdb_db_t)db, kv_name_addr, (uint32_t *)kv->name, FDB_WG_ALIGN(name_len));
-        FDB_INFO("Error: Read the KV (%.*s@0x%08" PRIX32 ") CRC32 check failed!\n", name_len, kv->name, kv->addr.start);
+        FDB_INFO("Error: Read the KV (%.*s@0x%08" PRIX32 ") CRC32 check failed!\n", (int)name_len, kv->name, kv->addr.start);
     } else {
         kv->crc_is_ok = true;
         /* the name is behind aligned KV header */
@@ -1077,7 +1077,7 @@ __retry:
             already_gc = true;
             goto __retry;
         } else if (already_gc) {
-            FDB_INFO("Error: Alloc an KV (size %" PRIuLEAST16 ") failed after GC. KV full.\n", kv_size);
+            FDB_INFO("Error: Alloc an KV (size %" PRIuPTR ") failed after GC. KV full.\n", (uintptr_t)kv_size);
             db->gc_request = false;
         }
     }
@@ -1522,8 +1522,8 @@ void fdb_kv_print(fdb_kvdb_t db)
     kv_iterator(db, &kv, &using_size, db, print_kv_cb);
 
     FDB_PRINT("\nmode: next generation\n");
-    FDB_PRINT("size: %" PRIu32 "/%" PRIu32 " bytes.\n", (uint32_t)using_size + ((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE),
-            db_max_size(db) - db_sec_size(db) * FDB_GC_EMPTY_SEC_THRESHOLD);
+    FDB_PRINT("size: %lu/%lu bytes.\n", (unsigned long)((uint32_t)using_size + ((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE)),
+            (unsigned long)db_max_size(db) - (unsigned long)db_sec_size(db) * FDB_GC_EMPTY_SEC_THRESHOLD);
 
     /* unlock the KV cache */
     db_unlock(db);
