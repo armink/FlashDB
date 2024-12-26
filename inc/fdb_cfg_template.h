@@ -6,7 +6,7 @@
 
 /**
  * @file
- * @brief configuration file
+ * @brief configuration template file. You need to rename the file to "fbd_cfg.h" and modify the configuration items in it to suit your use.
  */
 
 #ifndef _FDB_CFG_H_
