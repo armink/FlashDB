@@ -13,7 +13,7 @@
 #define FDB_LOG_TAG "[main]"
 
 static pthread_mutex_t kv_locker, ts_locker;
-pthread_mutexattr_t kv_locker_attr, ts_locker_attr;
+static pthread_mutexattr_t kv_locker_attr, ts_locker_attr;
 static uint32_t boot_count = 0;
 static time_t boot_time[10] = {0, 1, 2, 3};
 /* default KV nodes */
