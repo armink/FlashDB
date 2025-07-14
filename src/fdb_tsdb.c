@@ -367,8 +367,17 @@ static fdb_err_t update_sec_status(fdb_tsdb_t db, tsdb_sec_info_t sector, fdb_bl
             read_sector_info(db, new_sec_addr, &db->cur_sec, false);
         }
     } else if (sector->status == FDB_SECTOR_STORE_FULL) {
+#ifndef FDB_USING_FILE_MODE
         /* database full */
+        if (db->rollover) {
+            format_sector(db, 0);
+            read_sector_info(db, 0, &db->cur_sec, false);
+        } else {
+            return FDB_SAVED_FULL;
+        }
+#else
         return FDB_SAVED_FULL;
+#endif
     }
 
     if (sector->status == FDB_SECTOR_STORE_EMPTY) {
@@ -942,7 +951,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
     /* default rollover flag is true */
     db->rollover = true;
     db_oldest_addr(db) = FDB_DATA_UNUSED;
-    db->cur_sec.addr = FDB_DATA_UNUSED;
+    db->cur_sec.addr = ((fdb_db_t)db)->storage.part->offset;
     /* must less than sector size */
     FDB_ASSERT(max_len < db_sec_size(db));
 
