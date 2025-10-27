@@ -135,7 +135,7 @@ fdb_kv_set_blob(kvdb, "temp", fdb_blob_make(&blob, &temp_data, sizeof(temp_data)
 | db   | 数据库对象                            |
 | key  | KV 的名称                             |
 | blob | 通过 blob 对象，返回 KV 的 blob value |
-| 返回 | 错误码                                |
+| 返回 | 实际读取到的 blob 数据长度 |
 
 示例：
 
