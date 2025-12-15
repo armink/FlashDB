@@ -36,7 +36,11 @@
 
 #define SECTOR_HDR_DATA_SIZE                     (FDB_WG_ALIGN(sizeof(struct sector_hdr_data)))
 #define LOG_IDX_DATA_SIZE                        (FDB_WG_ALIGN(sizeof(struct log_idx_data)))
+#ifdef FDB_TSDB_USING_SEQ_MODE
+#define LOG_IDX_TS_OFFSET                        ((unsigned long)(&((struct log_idx_data *)0)->log_len))
+#else
 #define LOG_IDX_TS_OFFSET                        ((unsigned long)(&((struct log_idx_data *)0)->time))
+#endif
 #define SECTOR_MAGIC_OFFSET                      ((unsigned long)(&((struct sector_hdr_data *)0)->magic))
 #define SECTOR_START_TIME_OFFSET                 ((unsigned long)(&((struct sector_hdr_data *)0)->start_time))
 #define SECTOR_END0_TIME_OFFSET                  ((unsigned long)(&((struct sector_hdr_data *)0)->end_info[0].time))
@@ -93,7 +97,9 @@ typedef struct sector_hdr_data *sector_hdr_data_t;
 /* time series log node index data */
 struct log_idx_data {
     uint8_t status_table[TSL_STATUS_TABLE_SIZE]; /**< node status, @see fdb_tsl_status_t */
+#ifndef FDB_TSDB_USING_SEQ_MODE
     fdb_time_t time;                             /**< node timestamp */
+#endif
 #ifndef FDB_TSDB_FIXED_BLOB_SIZE
     uint32_t log_len;                            /**< node total length (header + name + value), must align by FDB_WRITE_GRAN */
     uint32_t log_addr;                           /**< node address */
@@ -116,7 +122,7 @@ struct check_sec_hdr_cb_args {
 static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
 {
     struct log_idx_data idx;
-#ifdef FDB_TSDB_FIXED_BLOB_SIZE
+#if defined(FDB_TSDB_FIXED_BLOB_SIZE) || defined(FDB_TSDB_USING_SEQ_MODE)
 	uint32_t tsl_index_in_sector;
 	uint32_t sector_addr;
 #endif
@@ -128,16 +134,24 @@ static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
         tsl->addr.log = FDB_DATA_UNUSED;
         tsl->time = 0;
     } else {
+#if defined(FDB_TSDB_FIXED_BLOB_SIZE) || defined(FDB_TSDB_USING_SEQ_MODE)
+		sector_addr = FDB_ALIGN_DOWN(tsl->addr.index, db_sec_size(db));
+        tsl_index_in_sector = (tsl->addr.index - sector_addr - SECTOR_HDR_DATA_SIZE) / LOG_IDX_DATA_SIZE;
+#endif
+
+#ifdef FDB_TSDB_USING_SEQ_MODE
+        /* Calculate time based on sector start time + index position */
+        tsl->time = tsl->time + tsl_index_in_sector;
+#else
+        tsl->time = idx.time;
+#endif
+
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
 		tsl->log_len = FDB_TSDB_FIXED_BLOB_SIZE;
-		sector_addr = FDB_ALIGN_DOWN(tsl->addr.index, db_sec_size(db));
-		tsl_index_in_sector = (tsl->addr.index - sector_addr - SECTOR_HDR_DATA_SIZE) / LOG_IDX_DATA_SIZE;
 		tsl->addr.log = sector_addr + db_sec_size(db) - (tsl_index_in_sector + 1) * FDB_WG_ALIGN(FDB_TSDB_FIXED_BLOB_SIZE);
-		tsl->time = idx.time;
 #else
         tsl->log_len = idx.log_len;
         tsl->addr.log = idx.log_addr;
-        tsl->time = idx.time;
 #endif
     }
 
@@ -327,12 +341,23 @@ static fdb_err_t write_tsl(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time)
     idx.log_addr = db->cur_sec.empty_data - FDB_WG_ALIGN(idx.log_len);
 #endif
 
+#ifdef FDB_TSDB_USING_SEQ_MODE
+    (void)time;
+#else
     idx.time = time;
+#endif
 
     /* write the status will by write granularity */
     _FDB_WRITE_STATUS(db, idx_addr, idx.status_table, FDB_TSL_STATUS_NUM, FDB_TSL_PRE_WRITE, false);
     /* write other index info */
+#ifndef FDB_TSDB_USING_SEQ_MODE
     FLASH_WRITE(db, idx_addr + LOG_IDX_TS_OFFSET, &idx.time,  sizeof(struct log_idx_data) - LOG_IDX_TS_OFFSET, false);
+#else
+#ifndef FDB_TSDB_FIXED_BLOB_SIZE
+    FLASH_WRITE(db, idx_addr + LOG_IDX_TS_OFFSET, &idx.log_len,  sizeof(struct log_idx_data) - LOG_IDX_TS_OFFSET, false);
+#endif
+// #else no other index info
+#endif
     /* write blob data */
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
 	FLASH_WRITE(db, log_addr, blob->buf, blob->size, false);
@@ -409,7 +434,12 @@ static fdb_err_t update_sec_status(fdb_tsdb_t db, tsdb_sec_info_t sector, fdb_bl
 static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t *timestamp)
 {
     fdb_err_t result = FDB_NO_ERR;
+#ifdef FDB_TSDB_USING_SEQ_MODE
+	fdb_time_t cur_time = db->last_time + 1;
+	(void)timestamp;
+#else
     fdb_time_t cur_time = timestamp == NULL ? db->get_time() : *timestamp;
+#endif
 
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
 	if(blob->size != FDB_TSDB_FIXED_BLOB_SIZE) {
@@ -542,6 +572,9 @@ void fdb_tsl_iter(fdb_tsdb_t db, fdb_tsl_cb cb, void *arg)
             tsl.addr.index = sector.addr + SECTOR_HDR_DATA_SIZE;
             /* search all TSL */
             do {
+#ifdef FDB_TSDB_USING_SEQ_MODE
+                tsl.time = sector.start_time;
+#endif
                 read_tsl(db, &tsl);
                 /* iterator is interrupted when callback return true */
                 if (cb(&tsl, arg)) {
@@ -592,6 +625,9 @@ void fdb_tsl_iter_reverse(fdb_tsdb_t db, fdb_tsl_cb cb, void *cb_arg)
             tsl.addr.index = sector.end_idx;
             /* search all TSL */
             do {
+#ifdef FDB_TSDB_USING_SEQ_MODE
+                tsl.time = sector.start_time;
+#endif
                 read_tsl(db, &tsl);
                 /* iterator is interrupted when callback return true */
                 if (cb(&tsl, cb_arg)) {
@@ -609,11 +645,18 @@ __exit:
 /*
  * Found the matched TSL address.
  */
-static int search_start_tsl_addr(fdb_tsdb_t db, int start, int end, fdb_time_t from, fdb_time_t to)
+static int search_start_tsl_addr(fdb_tsdb_t db, int start, int end, fdb_time_t from, fdb_time_t to
+#ifdef FDB_TSDB_USING_SEQ_MODE
+                                ,fdb_time_t start_time
+#endif
+)
 {
     struct fdb_tsl tsl;
     while (true) {
         tsl.addr.index = start + FDB_ALIGN((end - start) / 2, LOG_IDX_DATA_SIZE);
+#ifdef FDB_TSDB_USING_SEQ_MODE
+        tsl.time = start_time;
+#endif
         read_tsl(db, &tsl);
         if (tsl.time < from) {
             start = tsl.addr.index + LOG_IDX_DATA_SIZE;
@@ -626,6 +669,9 @@ static int search_start_tsl_addr(fdb_tsdb_t db, int start, int end, fdb_time_t f
         if (start > end) {
             if (from > to) {
                 tsl.addr.index = start;
+#ifdef FDB_TSDB_USING_SEQ_MODE
+				tsl.time = start_time;
+#endif
                 read_tsl(db, &tsl);
                 if (tsl.time > from) {
                     start -= LOG_IDX_DATA_SIZE;
@@ -700,9 +746,16 @@ void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl
 
                 found_start_tsl = true;
                 /* search the first start TSL address */
-                tsl.addr.index = search_start_tsl_addr(db, start, end, from, to);
+                tsl.addr.index = search_start_tsl_addr(db, start, end, from, to
+#ifdef FDB_TSDB_USING_SEQ_MODE
+													   , sector.start_time
+#endif
+													   );
                 /* search all TSL */
                 do {
+#ifdef FDB_TSDB_USING_SEQ_MODE
+					tsl.time = sector.start_time;
+#endif
                     read_tsl(db, &tsl);
                     if (tsl.status != FDB_TSL_UNUSED) {
                         if ((from <= to && tsl.time >= from && tsl.time <= to)
@@ -945,7 +998,7 @@ void fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg)
  * @param db database object
  * @param name database name
  * @param path FAL mode: partition name, file mode: database saved directory path
- * @param get_time get current time function
+ * @param get_time get current time function, not used if FDB_TSDB_USING_SEQ_MODE defined
  * @param max_len maximum length of each log
  * @param user_data user data
  *
@@ -957,7 +1010,11 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
     struct tsdb_sec_info sector;
     struct check_sec_hdr_cb_args check_sec_arg = { db, false, 0, 0};
 
+#ifndef FDB_TSDB_USING_SEQ_MODE
     FDB_ASSERT(get_time);
+#else
+	(void)get_time;
+#endif
 
     result = _fdb_init_ex((fdb_db_t)db, name, path, FDB_DB_TYPE_TS, user_data);
     if (result != FDB_NO_ERR) {
@@ -967,7 +1024,9 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
     /* lock the TSDB */
     db_lock(db);
 
+#ifndef FDB_TSDB_USING_SEQ_MODE
     db->get_time = get_time;
+#endif
     db->max_len = max_len;
     /* default rollover flag is true */
     db->rollover = true;
