@@ -23,6 +23,11 @@
 /* using TSDB (Time series database) feature */
 #define FDB_USING_TSDB
 
+/* Use fixed-size blobs in TSDB to save flash overhead (8 bytes per entry).
+ * Define this to the fixed blob size in bytes when all TSL entries are the same size.
+ * Ideal for logging fixed-size sensor data (e.g., float + timestamp). */
+/* #define FDB_TSDB_FIXED_BLOB_SIZE 4 */
+
 /* Using FAL storage mode */
 #define FDB_USING_FAL_MODE
 
