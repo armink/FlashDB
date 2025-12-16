@@ -25,7 +25,8 @@
 
 /* Use fixed-size blobs in TSDB to save flash overhead (8 bytes per entry).
  * Define this to the fixed blob size in bytes when all TSL entries are the same size.
- * Ideal for logging fixed-size sensor data (e.g., float + timestamp). */
+ * Ideal for logging fixed-size sensor data (e.g., float + timestamp).
+ * Warning: If defined will be incompataible with variable blob flash store or if fix blob size is later changed */
 /* #define FDB_TSDB_FIXED_BLOB_SIZE 4 */
 
 /* Using FAL storage mode */
