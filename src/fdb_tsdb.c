@@ -320,12 +320,7 @@ static fdb_err_t write_tsl(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time)
     fdb_err_t result = FDB_NO_ERR;
     struct log_idx_data idx;
     uint32_t idx_addr = db->cur_sec.empty_idx;
-#ifdef FDB_TSDB_FIXED_BLOB_SIZE
-     uint32_t log_addr = db->cur_sec.empty_data - FDB_WG_ALIGN(FDB_TSDB_FIXED_BLOB_SIZE);
-#else
-    idx.log_len = blob->size;
-    idx.log_addr = db->cur_sec.empty_data - FDB_WG_ALIGN(idx.log_len);
-#endif
+    uint32_t log_addr = db->cur_sec.empty_data - FDB_WG_ALIGN(blob->size);
 
     idx.time = time;
 
@@ -334,11 +329,7 @@ static fdb_err_t write_tsl(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time)
     /* write other index info */
     FLASH_WRITE(db, idx_addr + LOG_IDX_TS_OFFSET, &idx.time,  sizeof(struct log_idx_data) - LOG_IDX_TS_OFFSET, false);
     /* write blob data */
-#ifdef FDB_TSDB_FIXED_BLOB_SIZE
     FLASH_WRITE(db, log_addr, blob->buf, blob->size, false);
-#else
-    FLASH_WRITE(db, idx.log_addr, blob->buf, blob->size, false);
-#endif
     /* write the status will by write granularity */
     _FDB_WRITE_STATUS(db, idx_addr, idx.status_table, FDB_TSL_STATUS_NUM, FDB_TSL_WRITE, true);
 
