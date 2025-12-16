@@ -117,8 +117,8 @@ static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
 {
     struct log_idx_data idx;
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
-	uint32_t tsl_index_in_sector;
-	uint32_t sector_addr;
+    uint32_t tsl_index_in_sector;
+    uint32_t sector_addr;
 #endif
     /* read TSL index raw data */
     _fdb_flash_read((fdb_db_t)db, tsl->addr.index, (uint32_t *) &idx, sizeof(struct log_idx_data));
@@ -129,11 +129,11 @@ static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
         tsl->time = 0;
     } else {
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
-		tsl->log_len = FDB_TSDB_FIXED_BLOB_SIZE;
-		sector_addr = FDB_ALIGN_DOWN(tsl->addr.index, db_sec_size(db));
-		tsl_index_in_sector = (tsl->addr.index - sector_addr - SECTOR_HDR_DATA_SIZE) / LOG_IDX_DATA_SIZE;
-		tsl->addr.log = sector_addr + db_sec_size(db) - (tsl_index_in_sector + 1) * FDB_WG_ALIGN(FDB_TSDB_FIXED_BLOB_SIZE);
-		tsl->time = idx.time;
+        tsl->log_len = FDB_TSDB_FIXED_BLOB_SIZE;
+        sector_addr = FDB_ALIGN_DOWN(tsl->addr.index, db_sec_size(db));
+        tsl_index_in_sector = (tsl->addr.index - sector_addr - SECTOR_HDR_DATA_SIZE) / LOG_IDX_DATA_SIZE;
+        tsl->addr.log = sector_addr + db_sec_size(db) - (tsl_index_in_sector + 1) * FDB_WG_ALIGN(FDB_TSDB_FIXED_BLOB_SIZE);
+        tsl->time = idx.time;
 #else
         tsl->log_len = idx.log_len;
         tsl->addr.log = idx.log_addr;
@@ -321,7 +321,7 @@ static fdb_err_t write_tsl(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time)
     struct log_idx_data idx;
     uint32_t idx_addr = db->cur_sec.empty_idx;
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
-	 uint32_t log_addr = db->cur_sec.empty_data - FDB_WG_ALIGN(FDB_TSDB_FIXED_BLOB_SIZE);
+     uint32_t log_addr = db->cur_sec.empty_data - FDB_WG_ALIGN(FDB_TSDB_FIXED_BLOB_SIZE);
 #else
     idx.log_len = blob->size;
     idx.log_addr = db->cur_sec.empty_data - FDB_WG_ALIGN(idx.log_len);
@@ -335,7 +335,7 @@ static fdb_err_t write_tsl(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time)
     FLASH_WRITE(db, idx_addr + LOG_IDX_TS_OFFSET, &idx.time,  sizeof(struct log_idx_data) - LOG_IDX_TS_OFFSET, false);
     /* write blob data */
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
-	FLASH_WRITE(db, log_addr, blob->buf, blob->size, false);
+    FLASH_WRITE(db, log_addr, blob->buf, blob->size, false);
 #else
     FLASH_WRITE(db, idx.log_addr, blob->buf, blob->size, false);
 #endif
@@ -412,10 +412,10 @@ static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t *timestam
     fdb_time_t cur_time = timestamp == NULL ? db->get_time() : *timestamp;
 
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
-	if(blob->size != FDB_TSDB_FIXED_BLOB_SIZE) {
-		FDB_INFO("Error: blob size (%zu) must equal FDB_TSDB_FIXED_BLOB_SIZE (%d)\n", blob->size, FDB_TSDB_FIXED_BLOB_SIZE);
-		return FDB_WRITE_ERR;
-	}
+    if(blob->size != FDB_TSDB_FIXED_BLOB_SIZE) {
+        FDB_INFO("Error: blob size (%zu) must equal FDB_TSDB_FIXED_BLOB_SIZE (%d)\n", blob->size, FDB_TSDB_FIXED_BLOB_SIZE);
+        return FDB_WRITE_ERR;
+    }
 #else
     /* check the append length, MUST less than the db->max_len */
     if(blob->size > db->max_len)
