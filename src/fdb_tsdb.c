@@ -322,6 +322,11 @@ static fdb_err_t write_tsl(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time)
     uint32_t idx_addr = db->cur_sec.empty_idx;
     uint32_t log_addr = db->cur_sec.empty_data - FDB_WG_ALIGN(blob->size);
 
+#ifndef FDB_TSDB_FIXED_BLOB_SIZE
+    // variable-size blobs must store address and size in flash
+    idx.log_addr = log_addr;
+    idx.log_len = blob->size;
+#endif
     idx.time = time;
 
     /* write the status will by write granularity */
