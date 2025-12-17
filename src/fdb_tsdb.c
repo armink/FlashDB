@@ -116,10 +116,7 @@ struct check_sec_hdr_cb_args {
 static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
 {
     struct log_idx_data idx;
-#ifdef FDB_TSDB_FIXED_BLOB_SIZE
-    uint32_t tsl_index_in_sector;
-    uint32_t sector_addr;
-#endif
+
     /* read TSL index raw data */
     _fdb_flash_read((fdb_db_t)db, tsl->addr.index, (uint32_t *) &idx, sizeof(struct log_idx_data));
     tsl->status = (fdb_tsl_status_t) _fdb_get_status(idx.status_table, FDB_TSL_STATUS_NUM);
@@ -129,6 +126,8 @@ static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
         tsl->time = 0;
     } else {
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
+        uint32_t tsl_index_in_sector;
+        uint32_t sector_addr;
         tsl->log_len = FDB_TSDB_FIXED_BLOB_SIZE;
         sector_addr = FDB_ALIGN_DOWN(tsl->addr.index, db_sec_size(db));
         tsl_index_in_sector = (tsl->addr.index - sector_addr - SECTOR_HDR_DATA_SIZE) / LOG_IDX_DATA_SIZE;
