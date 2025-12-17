@@ -407,7 +407,7 @@ static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t *timestam
     fdb_time_t cur_time = timestamp == NULL ? db->get_time() : *timestamp;
 
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
-    if(blob->size != FDB_TSDB_FIXED_BLOB_SIZE) {
+    if (blob->size != FDB_TSDB_FIXED_BLOB_SIZE) {
         FDB_INFO("Error: blob size (%zu) must equal FDB_TSDB_FIXED_BLOB_SIZE (%d)\n", blob->size, FDB_TSDB_FIXED_BLOB_SIZE);
         return FDB_WRITE_ERR;
     }
