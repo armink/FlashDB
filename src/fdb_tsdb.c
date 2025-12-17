@@ -784,6 +784,7 @@ static bool check_sec_hdr_cb(tsdb_sec_info_t sector, void *arg1, void *arg2)
         } else {
             FDB_DEBUG("Sector header info is incorrect. Auto format this sector (0x%08" PRIX32 ").\n", sector->addr);
             format_sector(db, sector->addr);
+            sector->status = FDB_SECTOR_STORE_EMPTY;
         }
     } else if (sector->status == FDB_SECTOR_STORE_USING) {
         if (db->cur_sec.addr == FDB_DATA_UNUSED) {
@@ -796,9 +797,13 @@ static bool check_sec_hdr_cb(tsdb_sec_info_t sector, void *arg1, void *arg2)
             } else {
                 FDB_DEBUG("Sector header info is incorrect. Auto format this sector (0x%08" PRIX32 ").\n", sector->addr);
                 format_sector(db, sector->addr);
+                sector->status = FDB_SECTOR_STORE_EMPTY;
             }
         }
-    } else if (sector->status == FDB_SECTOR_STORE_EMPTY) {
+    }
+
+    /* if sector is empty (or was formatted) update empty_num counter and cur_sec info*/
+    if (sector->status == FDB_SECTOR_STORE_EMPTY) {
         (arg->empty_num) += 1;
         arg->empty_addr = sector->addr;
         if ((arg->empty_num) == 1 && db->cur_sec.addr == FDB_DATA_UNUSED) {
