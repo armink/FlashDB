@@ -133,7 +133,7 @@ static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
 #if defined(FDB_TSDB_FIXED_BLOB_SIZE) || defined(FDB_TSDB_USING_SEQ_MODE)
         uint32_t tsl_index_in_sector;
         uint32_t sector_addr;
-		sector_addr = FDB_ALIGN_DOWN(tsl->addr.index, db_sec_size(db));
+        sector_addr = FDB_ALIGN_DOWN(tsl->addr.index, db_sec_size(db));
         tsl_index_in_sector = (tsl->addr.index - sector_addr - SECTOR_HDR_DATA_SIZE) / LOG_IDX_DATA_SIZE;
 #endif
 
@@ -429,8 +429,8 @@ static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t *timestam
 {
     fdb_err_t result = FDB_NO_ERR;
 #ifdef FDB_TSDB_USING_SEQ_MODE
-	fdb_time_t cur_time = db->last_time + 1;
-	(void)timestamp;
+    fdb_time_t cur_time = db->last_time + 1;
+    (void)timestamp;
 #else
     fdb_time_t cur_time = timestamp == NULL ? db->get_time() : *timestamp;
 #endif
@@ -664,7 +664,7 @@ static int search_start_tsl_addr(fdb_tsdb_t db, int start, int end, fdb_time_t f
             if (from > to) {
                 tsl.addr.index = start;
 #ifdef FDB_TSDB_USING_SEQ_MODE
-				tsl.time = start_time;
+                tsl.time = start_time;
 #endif
                 read_tsl(db, &tsl);
                 if (tsl.time > from) {
@@ -742,13 +742,13 @@ void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl
                 /* search the first start TSL address */
                 tsl.addr.index = search_start_tsl_addr(db, start, end, from, to
 #ifdef FDB_TSDB_USING_SEQ_MODE
-													   , sector.start_time
+                                                       , sector.start_time
 #endif
-													   );
+                                                       );
                 /* search all TSL */
                 do {
 #ifdef FDB_TSDB_USING_SEQ_MODE
-					tsl.time = sector.start_time;
+                    tsl.time = sector.start_time;
 #endif
                     read_tsl(db, &tsl);
                     if (tsl.status != FDB_TSL_UNUSED) {
@@ -1007,7 +1007,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
 #ifndef FDB_TSDB_USING_SEQ_MODE
     FDB_ASSERT(get_time);
 #else
-	(void)get_time;
+    (void)get_time;
 #endif
 
     result = _fdb_init_ex((fdb_db_t)db, name, path, FDB_DB_TYPE_TS, user_data);
