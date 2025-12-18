@@ -122,10 +122,6 @@ struct check_sec_hdr_cb_args {
 static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
 {
     struct log_idx_data idx;
-#if defined(FDB_TSDB_FIXED_BLOB_SIZE) || defined(FDB_TSDB_USING_SEQ_MODE)
-    uint32_t tsl_index_in_sector;
-    uint32_t sector_addr;
-#endif
     /* read TSL index raw data */
     _fdb_flash_read((fdb_db_t)db, tsl->addr.index, (uint32_t *) &idx, sizeof(struct log_idx_data));
     tsl->status = (fdb_tsl_status_t) _fdb_get_status(idx.status_table, FDB_TSL_STATUS_NUM);
@@ -135,6 +131,8 @@ static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
         tsl->time = 0;
     } else {
 #if defined(FDB_TSDB_FIXED_BLOB_SIZE) || defined(FDB_TSDB_USING_SEQ_MODE)
+        uint32_t tsl_index_in_sector;
+        uint32_t sector_addr;
 		sector_addr = FDB_ALIGN_DOWN(tsl->addr.index, db_sec_size(db));
         tsl_index_in_sector = (tsl->addr.index - sector_addr - SECTOR_HDR_DATA_SIZE) / LOG_IDX_DATA_SIZE;
 #endif
@@ -336,6 +334,11 @@ static fdb_err_t write_tsl(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time)
     uint32_t idx_addr = db->cur_sec.empty_idx;
     uint32_t log_addr = db->cur_sec.empty_data - FDB_WG_ALIGN(blob->size);
 
+#ifndef FDB_TSDB_FIXED_BLOB_SIZE
+    // variable-size blobs must store address and size in flash
+    idx.log_addr = log_addr;
+    idx.log_len = blob->size;
+#endif
 #ifdef FDB_TSDB_USING_SEQ_MODE
     (void)time;
 #else
@@ -433,7 +436,7 @@ static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t *timestam
 #endif
 
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
-    if(blob->size != FDB_TSDB_FIXED_BLOB_SIZE) {
+    if (blob->size != FDB_TSDB_FIXED_BLOB_SIZE) {
         FDB_INFO("Error: blob size (%zu) must equal FDB_TSDB_FIXED_BLOB_SIZE (%d)\n", blob->size, FDB_TSDB_FIXED_BLOB_SIZE);
         return FDB_WRITE_ERR;
     }
