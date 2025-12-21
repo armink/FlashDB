@@ -122,6 +122,7 @@ struct check_sec_hdr_cb_args {
 static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
 {
     struct log_idx_data idx;
+
     /* read TSL index raw data */
     _fdb_flash_read((fdb_db_t)db, tsl->addr.index, (uint32_t *) &idx, sizeof(struct log_idx_data));
     tsl->status = (fdb_tsl_status_t) _fdb_get_status(idx.status_table, FDB_TSL_STATUS_NUM);
