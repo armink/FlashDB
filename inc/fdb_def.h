@@ -323,7 +323,9 @@ struct fdb_tsdb {
     struct fdb_db parent;                        /**< inherit from fdb_db */
     struct tsdb_sec_info cur_sec;                /**< current using sector */
     fdb_time_t last_time;                        /**< last TSL timestamp */
+#ifndef FDB_TSDB_USING_SEQ_MODE
     fdb_get_time get_time;                       /**< the current timestamp get function */
+#endif
     size_t max_len;                              /**< the maximum length of each log */
     bool rollover;                               /**< the oldest data will rollover by newest data, default is true */
 
