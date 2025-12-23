@@ -55,6 +55,8 @@
 #define db_max_size(db)                          (((fdb_db_t)db)->max_size)
 #define db_oldest_addr(db)                       (((fdb_db_t)db)->oldest_addr)
 
+#define SECTOR_NUM                               (db_max_size(db) / db_sec_size(db))
+
 #define db_lock(db)                                                            \
     do {                                                                       \
         if (((fdb_db_t)db)->lock) ((fdb_db_t)db)->lock((fdb_db_t)db);          \
@@ -108,7 +110,7 @@ struct query_count_args {
 
 struct check_sec_hdr_cb_args {
     fdb_tsdb_t db;
-    bool check_failed;
+    size_t failed_count;
     size_t empty_num;
     uint32_t empty_addr;
 };
@@ -801,17 +803,32 @@ static bool check_sec_hdr_cb(tsdb_sec_info_t sector, void *arg1, void *arg2)
 
     if (!sector->check_ok) {
         FDB_INFO("Sector (0x%08" PRIX32 ") header info is incorrect.\n", sector->addr);
-        (arg->check_failed) = true;
-        return true;
+        arg->failed_count++;
+        if (db->parent.not_formatable) {
+            return true;
+        } else {
+            FDB_DEBUG("Sector header info is incorrect. Auto format this sector (0x%08" PRIX32 ").\n", sector->addr);
+            format_sector(db, sector->addr);
+            sector->status = FDB_SECTOR_STORE_EMPTY;
+        }
     } else if (sector->status == FDB_SECTOR_STORE_USING) {
         if (db->cur_sec.addr == FDB_DATA_UNUSED) {
             memcpy(&db->cur_sec, sector, sizeof(struct tsdb_sec_info));
         } else {
             FDB_INFO("Warning: Sector status is wrong, there are multiple sectors in use.\n");
-            (arg->check_failed) = true;
-            return true;
+            arg->failed_count++;
+            if (db->parent.not_formatable) {
+                return true;
+            } else {
+                FDB_DEBUG("Sector header info is incorrect. Auto format this sector (0x%08" PRIX32 ").\n", sector->addr);
+                format_sector(db, sector->addr);
+                sector->status = FDB_SECTOR_STORE_EMPTY;
+            }
         }
-    } else if (sector->status == FDB_SECTOR_STORE_EMPTY) {
+    }
+
+    /* if sector is empty (or was formatted) update empty_num counter and cur_sec info*/
+    if (sector->status == FDB_SECTOR_STORE_EMPTY) {
         (arg->empty_num) += 1;
         arg->empty_addr = sector->addr;
         if ((arg->empty_num) == 1 && db->cur_sec.addr == FDB_DATA_UNUSED) {
@@ -950,7 +967,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
 {
     fdb_err_t result = FDB_NO_ERR;
     struct tsdb_sec_info sector;
-    struct check_sec_hdr_cb_args check_sec_arg = { db, false, 0, 0};
+    struct check_sec_hdr_cb_args check_sec_arg = { db, 0, 0, 0};
 
     FDB_ASSERT(get_time);
 
@@ -973,16 +990,19 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
 
     /* check all sector header */
     sector.addr = 0;
+
+    /* check all sector header */
     sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &check_sec_arg, NULL, check_sec_hdr_cb, true);
-    /* format all sector when check failed */
-    if (check_sec_arg.check_failed) {
-        if (db->parent.not_formatable) {
-            result = FDB_READ_ERR;
-            goto __exit;
-        } else {
-            tsl_format_all(db);
-        }
-    } else {
+    if (db->parent.not_formatable && check_sec_arg.failed_count > 0) {
+        result = FDB_READ_ERR;
+        goto __exit;
+    }
+    /* all sector header check failed */
+    if (check_sec_arg.failed_count == SECTOR_NUM) {
+        FDB_INFO("All sector header is incorrect. Set it to default.\n");
+        tsl_format_all(db);
+    }
+
         uint32_t latest_addr;
         if (check_sec_arg.empty_num > 0) {
             latest_addr = check_sec_arg.empty_addr;
@@ -1001,7 +1021,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
         } else {
             db_oldest_addr(db) = latest_addr + db_sec_size(db);
         }
-    }
+
     FDB_DEBUG("TSDB (%s) oldest sectors is 0x%08" PRIX32 ", current using sector is 0x%08" PRIX32 ".\n", db_name(db), db_oldest_addr(db),
             db->cur_sec.addr);
     /* read the current using sector info */
