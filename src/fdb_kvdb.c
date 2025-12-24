@@ -12,6 +12,7 @@
  */
 
 #include <inttypes.h>
+#include <stdint.h>
 #include <string.h>
 #include <flashdb.h>
 #include <fdb_low_lvl.h>
@@ -119,6 +120,7 @@ struct kv_hdr_data {
     uint32_t len;                                /**< KV node total length (header + name + value), must align by FDB_WRITE_GRAN */
     uint32_t crc32;                              /**< KV node crc32(name_len + data_len + name + value) */
     uint8_t name_len;                            /**< name length */
+    uint16_t name_crc;
     uint32_t value_len;                          /**< value length */
 #if (FDB_WRITE_GRAN == 64)
     uint8_t padding[4];                          /**< align padding for 64bit write granularity */
@@ -342,7 +344,13 @@ static uint32_t get_next_kv_addr(fdb_kvdb_t db, kv_sec_info_t sector, fdb_kv_t p
     return addr;
 }
 
-static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
+struct kv_search_ctx {
+    const char *key;
+    size_t key_len;
+    uint16_t name_crc;
+};
+
+static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv, const struct kv_search_ctx *search_ctx)
 {
     struct kv_hdr_data kv_hdr;
     uint8_t buf[32];
@@ -353,6 +361,9 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
     _fdb_flash_read((fdb_db_t)db, kv->addr.start, (uint32_t *)&kv_hdr, sizeof(struct kv_hdr_data));
     kv->status = (fdb_kv_status_t) _fdb_get_status(kv_hdr.status_table, FDB_KV_STATUS_NUM);
     kv->len = kv_hdr.len;
+    kv->name_crc = kv_hdr.name_crc;
+    kv->name_len = kv_hdr.name_len;
+    kv->value_len = kv_hdr.value_len;
 
     if (kv->len == UINT32_MAX || kv->len > db_max_size(db) || kv->len < KV_HDR_DATA_SIZE) {
         /* the KV length was not write, so reserved the info for current KV */
@@ -366,6 +377,15 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
         return FDB_READ_ERR;
     } else if (kv->len > db_sec_size(db) - SECTOR_HDR_DATA_SIZE && kv->len < db_max_size(db)) {
         //TODO Sector continuous mode, or the write length is not written completely
+    }
+
+    if (search_ctx) {
+        bool crc_match = (kv_hdr.name_crc == search_ctx->name_crc) || (kv_hdr.name_crc == 0xFFFF);
+        if ((kv_hdr.name_len != search_ctx->key_len) || !crc_match) {
+            /* skip full read for mismatched name */
+            kv->crc_is_ok = true;
+            return FDB_KV_NAME_ERR;
+        }
     }
 
     /* CRC32 data len(header.name_len + header.value_len + name + value), using sizeof(uint32_t) for compatible V1.x */
@@ -458,7 +478,7 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
             sector->remain = db_sec_size(db) - SECTOR_HDR_DATA_SIZE;
             kv_obj.addr.start = sector->addr + SECTOR_HDR_DATA_SIZE;
             do {
-                read_kv(db, &kv_obj);
+                read_kv(db, &kv_obj, NULL);
                 if (!kv_obj.crc_is_ok) {
                     if (kv_obj.status != FDB_KV_PRE_WRITE && kv_obj.status != FDB_KV_ERR_HDR) {
                         sector->remain = 0;
@@ -523,7 +543,7 @@ static uint32_t get_next_sector_addr(fdb_kvdb_t db, kv_sec_info_t pre_sec, uint3
 }
 
 static void kv_iterator(fdb_kvdb_t db, fdb_kv_t kv, void *arg1, void *arg2,
-        bool (*callback)(fdb_kv_t kv, void *arg1, void *arg2))
+        bool (*callback)(fdb_kv_t kv, void *arg1, void *arg2), const struct kv_search_ctx *search_ctx)
 {
     struct kvdb_sec_info sector;
     uint32_t sec_addr, traversed_len = 0;
@@ -543,10 +563,11 @@ static void kv_iterator(fdb_kvdb_t db, fdb_kv_t kv, void *arg1, void *arg2,
             kv->addr.start = sector.addr + SECTOR_HDR_DATA_SIZE;
             /* search all KV */
             do {
-                read_kv(db, kv);
-                /* iterator is interrupted when callback return true */
-                if (callback(kv, arg1, arg2)) {
-                    return;
+                if (read_kv(db, kv, search_ctx) != FDB_KV_NAME_ERR) {
+                    /* iterator is interrupted when callback return true */
+                    if (callback(kv, arg1, arg2)) {
+                        return;
+                    }
                 }
             } while ((kv->addr.start = get_next_kv_addr(db, &sector, kv)) != FAILED_ADDR);
         }
@@ -555,15 +576,15 @@ static void kv_iterator(fdb_kvdb_t db, fdb_kv_t kv, void *arg1, void *arg2,
 
 static bool find_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
 {
-    const char *key = arg1;
+    struct kv_search_ctx *ctx = arg1;
     bool *find_ok = arg2;
-    size_t key_len = strlen(key);
+    bool crc_compatible = (kv->name_crc == ctx->name_crc) || (kv->name_crc == 0xFFFF);
 
-    if (key_len != kv->name_len) {
+    if (ctx->key_len != kv->name_len) {
         return false;
     }
     /* check KV */
-    if (kv->crc_is_ok && kv->status == FDB_KV_WRITE && !strncmp(kv->name, key, key_len)) {
+    if (crc_compatible && kv->crc_is_ok && kv->status == FDB_KV_WRITE && !strncmp(kv->name, ctx->key, ctx->key_len)) {
         *find_ok = true;
         return true;
     }
@@ -573,8 +594,14 @@ static bool find_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
 static bool find_kv_no_cache(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
 {
     bool find_ok = false;
+    size_t key_len = strlen(key);
+    struct kv_search_ctx ctx = {
+        .key = key,
+        .key_len = key_len,
+        .name_crc = (uint16_t) (fdb_calc_crc32(0, key, key_len) >> 16),
+    };
 
-    kv_iterator(db, kv, (void *)key, &find_ok, find_kv_cb);
+    kv_iterator(db, kv, &ctx, &find_ok, find_kv_cb, &ctx);
 
     return find_ok;
 }
@@ -587,7 +614,7 @@ static bool find_kv(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
     size_t key_len = strlen(key);
 
     if (get_kv_from_cache(db, key, key_len, &kv->addr.start)) {
-        read_kv(db, kv);
+        read_kv(db, kv, NULL);
         return true;
     }
 #endif /* FDB_KV_USING_CACHE */
@@ -1120,7 +1147,7 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
         /* search all KV */
         kv.addr.start = sector->addr + SECTOR_HDR_DATA_SIZE;
         do {
-            read_kv(db, &kv);
+            read_kv(db, &kv, NULL);
             if (kv.crc_is_ok && (kv.status == FDB_KV_WRITE || kv.status == FDB_KV_PRE_DELETE)) {
                 /* move the KV to new space */
                 if (move_kv(db, &kv) != FDB_NO_ERR) {
@@ -1239,6 +1266,7 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
             uint8_t ff = FDB_BYTE_ERASED;
             /* start calculate CRC32 */
             kv_hdr.crc32 = 0;
+            kv_hdr.name_crc = (uint16_t) (fdb_calc_crc32(0, key, kv_hdr.name_len) >> 16);
             /* CRC32(header.name_len + header.value_len + name + value), using sizeof(uint32_t) for compatible V1.x */
             kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, &kv_hdr.name_len, sizeof(uint32_t));
             kv_hdr.crc32 = fdb_calc_crc32(kv_hdr.crc32, &kv_hdr.value_len, sizeof(uint32_t));
@@ -1521,7 +1549,7 @@ void fdb_kv_print(fdb_kvdb_t db)
     /* lock the KV cache */
     db_lock(db);
 
-    kv_iterator(db, &kv, &using_size, db, print_kv_cb);
+    kv_iterator(db, &kv, &using_size, db, print_kv_cb, NULL);
 
     FDB_PRINT("\nmode: next generation\n");
     FDB_PRINT("size: %" PRIu32 "/%" PRIu32 " bytes.\n", (uint32_t)using_size + ((SECTOR_NUM - FDB_GC_EMPTY_SEC_THRESHOLD) * SECTOR_HDR_DATA_SIZE),
@@ -1676,7 +1704,7 @@ static fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
 
 __retry:
     /* check all KV for recovery */
-    kv_iterator(db, &kv, db, NULL, check_and_recovery_kv_cb);
+    kv_iterator(db, &kv, db, NULL, check_and_recovery_kv_cb, NULL);
     if (db->gc_request) {
         gc_collect(db);
         goto __retry;
@@ -1898,7 +1926,7 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
                     continue;
                 }
                 do {
-                    read_kv(db, kv);
+                    read_kv(db, kv, NULL);
                     if (kv->status == FDB_KV_WRITE && kv->crc_is_ok == true) {
                         /* We got a valid kv here. */
                         /* If iterator statistics is needed */
@@ -1954,7 +1982,7 @@ fdb_err_t fdb_kvdb_check(fdb_kvdb_t db)
                 kv.addr.start = sector.addr + SECTOR_HDR_DATA_SIZE;
                 /* search all KV */
                 do {
-                    result = read_kv(db, &kv);
+                    result = read_kv(db, &kv, NULL);
                 } while ((kv.addr.start = get_next_kv_addr(db, &sector, &kv)) != FAILED_ADDR && result == FDB_NO_ERR);
             }
         }
