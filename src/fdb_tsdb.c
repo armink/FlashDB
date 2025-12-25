@@ -19,9 +19,6 @@
 #include <fdb_low_lvl.h>
 
 #define FDB_LOG_TAG "[tsl]"
-/* rewrite log prefix */
-#undef  FDB_LOG_PREFIX2
-#define FDB_LOG_PREFIX2()                         FDB_PRINT("[%s][%s] ", db_name(db), _fdb_db_path((fdb_db_t)db))
 
 #if defined(FDB_USING_TSDB)
 
@@ -415,7 +412,7 @@ static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t *timestam
     /* check the append length, MUST less than the db->max_len */
     if(blob->size > db->max_len)
     {
-        FDB_INFO("Warning: append length (%" PRIdMAX ") is more than the db->max_len (%" PRIdMAX "). This tsl will be dropped.\n", 
+        FDB_INFO("Warning: append length (%" PRIdMAX ") is more than the db->max_len (%" PRIdMAX "). This tsl will be dropped.\n",
                 (intmax_t)blob->size, (intmax_t)(db->max_len));
         return FDB_WRITE_ERR;
     }
@@ -464,7 +461,7 @@ fdb_err_t fdb_tsl_append(fdb_tsdb_t db, fdb_blob_t blob)
     fdb_err_t result = FDB_NO_ERR;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: TSL (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: TSL isn't initialize OK.\n");
         return FDB_INIT_FAILED;
     }
 
@@ -488,7 +485,7 @@ fdb_err_t fdb_tsl_append_with_ts(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time
     fdb_err_t result = FDB_NO_ERR;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: TSL (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: TSL isn't initialize OK.\n");
         return FDB_INIT_FAILED;
     }
 
@@ -513,7 +510,7 @@ void fdb_tsl_iter(fdb_tsdb_t db, fdb_tsl_cb cb, void *arg)
     struct fdb_tsl tsl;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: TSL (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: TSL isn't initialize OK.\n");
     }
 
     if (cb == NULL) {
@@ -563,7 +560,7 @@ void fdb_tsl_iter_reverse(fdb_tsdb_t db, fdb_tsl_cb cb, void *cb_arg)
     struct fdb_tsl tsl;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: TSL (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: TSL isn't initialize OK.\n");
     }
 
     if (cb == NULL) {
@@ -652,7 +649,7 @@ void fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl
     uint32_t (*get_tsl_addr)(tsdb_sec_info_t , fdb_tsl_t);
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: TSL (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: TSL isn't initialize OK.\n");
     }
 
     if(from <= to) {
@@ -747,7 +744,7 @@ size_t fdb_tsl_query_count(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_ts
     arg.status = status;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: TSL (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: TSL isn't initialize OK.\n");
         return 0;
     }
 
