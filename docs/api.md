@@ -250,7 +250,7 @@ Using this iterator API, all KVs in the entire KVDB can be traversed.
 | db | Database Objects |
 | name | Database name |
 | path | FAL mode: the partition name in the partition table, file mode: the path where the database is saved |
-| get_time | Function to get the current timestamp |
+| get_time | Function to get the current timestamp, NULL to use the default sequential timestamps. |
 | max_len | Maximum length of each TSL |
 | user_data | User-defined data, NULL if not available |
 | Return | Error Code |

@@ -119,6 +119,8 @@ struct check_sec_hdr_cb_args {
     uint32_t empty_addr;
 };
 
+static fdb_time_t fdb_default_get_time(fdb_tsdb_t db);
+
 static fdb_err_t read_tsl(fdb_tsdb_t db, fdb_tsl_t tsl)
 {
     struct log_idx_data idx;
@@ -429,11 +431,10 @@ static fdb_err_t update_sec_status(fdb_tsdb_t db, tsdb_sec_info_t sector, fdb_bl
 static fdb_err_t tsl_append(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t *timestamp)
 {
     fdb_err_t result = FDB_NO_ERR;
+    fdb_time_t cur_time = timestamp == NULL ? db->get_time(db) : *timestamp;
 #ifdef FDB_TSDB_USING_SEQ_MODE
-    fdb_time_t cur_time = db->last_time + 1;
-    (void)timestamp;
-#else
-    fdb_time_t cur_time = timestamp == NULL ? db->get_time() : *timestamp;
+    /* should never have a timestamp in sequential mode */
+    FDB_ASSERT(!timestamp)
 #endif
 
 #ifdef FDB_TSDB_FIXED_BLOB_SIZE
@@ -993,7 +994,7 @@ void fdb_tsdb_control(fdb_tsdb_t db, int cmd, void *arg)
  * @param db database object
  * @param name database name
  * @param path FAL mode: partition name, file mode: database saved directory path
- * @param get_time get current time function, not used if FDB_TSDB_USING_SEQ_MODE defined
+ * @param get_time get current time function
  * @param max_len maximum length of each log
  * @param user_data user data
  *
@@ -1005,10 +1006,9 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
     struct tsdb_sec_info sector;
     struct check_sec_hdr_cb_args check_sec_arg = { db, false, 0, 0};
 
-#ifndef FDB_TSDB_USING_SEQ_MODE
-    FDB_ASSERT(get_time);
-#else
-    (void)get_time;
+#ifdef FDB_TSDB_USING_SEQ_MODE
+    /* In sequential mode cannot set get_time function */
+    FDB_ASSERT(!get_time);
 #endif
 
     result = _fdb_init_ex((fdb_db_t)db, name, path, FDB_DB_TYPE_TS, user_data);
@@ -1019,9 +1019,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
     /* lock the TSDB */
     db_lock(db);
 
-#ifndef FDB_TSDB_USING_SEQ_MODE
-    db->get_time = get_time;
-#endif
+    db->get_time = get_time == NULL ? fdb_default_get_time : get_time;
     db->max_len = max_len;
     /* default rollover flag is true */
     db->rollover = true;
@@ -1103,6 +1101,18 @@ fdb_err_t fdb_tsdb_deinit(fdb_tsdb_t db)
     _fdb_deinit((fdb_db_t) db);
 
     return FDB_NO_ERR;
+}
+
+/**
+ * The time series database default get time.
+ * default mode is sequential mode - returns last_time + 1
+ * @param db database object
+ *
+ * @return fdb_time_t
+ */
+static fdb_time_t fdb_default_get_time(fdb_tsdb_t db)
+{
+    return db->last_time + 1;
 }
 
 #endif /* defined(FDB_USING_TSDB) */

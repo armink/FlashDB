@@ -31,8 +31,8 @@
 
 
 /* Use sequential mode - eliminates per-entry timestamp storage by calculating timestamps
- * on-the-fly, saving sizeof(fdb_time_t). In this mode timestamps are monotonically increasing by 1 on each log
- * and don't require application to provide a time function.
+ * on-the-fly, saving sizeof(fdb_time_t).
+ * In this mode, timestamps increment by 1; providing a non-NULL get_time causes an ASSERT.
  * Warning: If defined will be incompatible with time flash store */
 /* #define FDB_TSDB_USING_SEQ_MODE */
 

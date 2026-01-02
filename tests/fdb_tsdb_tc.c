@@ -45,8 +45,10 @@ static int cur_times = 0;
 static struct test_tls_sector test_secs_info[10];
 static fdb_time_t test_db_start_time = 0x7FFFFFFF, test_db_end_time = 0;
 
-static fdb_time_t get_time(void)
+static fdb_time_t get_time(fdb_tsdb_t db)
 {
+    /* db not used to get time */
+    (void)db;
     cur_times += TEST_TIME_STEP;
     return cur_times;
 }
