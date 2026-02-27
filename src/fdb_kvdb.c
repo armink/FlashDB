@@ -27,8 +27,8 @@
 #error "Please configure flash write granularity (in fdb_cfg.h)"
 #endif
 
-#if FDB_WRITE_GRAN != 1 && FDB_WRITE_GRAN != 8 && FDB_WRITE_GRAN != 32 && FDB_WRITE_GRAN != 64 && FDB_WRITE_GRAN != 128
-#error "the write gran can be only setting as 1, 8, 32, 64 and 128"
+#if FDB_WRITE_GRAN != 1 && FDB_WRITE_GRAN != 8 && FDB_WRITE_GRAN != 32 && FDB_WRITE_GRAN != 64 && FDB_WRITE_GRAN != 128 && FDB_WRITE_GRAN != 256
+#error "the write gran can be only setting as 1, 8, 32, 64, 128 and 256"
 #endif
 
 /* magic word(`F`, `D`, `B`, `1`) */
@@ -109,6 +109,8 @@ struct sector_hdr_data {
     uint32_t reserved;
 #if (FDB_WRITE_GRAN == 64) || (FDB_WRITE_GRAN == 128)
     uint8_t padding[4];                          /**< align padding for 64bit and 128bit write granularity */
+#elif (FDB_WRITE_GRAN == 256)
+    uint8_t padding[20];                         /**< align padding for 256bit write granularity */
 #endif
 };
 typedef struct sector_hdr_data *sector_hdr_data_t;
@@ -121,10 +123,9 @@ struct kv_hdr_data {
     uint8_t name_len;                            /**< name length */
     uint32_t value_len;                          /**< value length */
 #if (FDB_WRITE_GRAN == 64)
-    uint8_t padding[4];                          /**< align padding for 64bit write granularity */
-#endif
-#if (FDB_WRITE_GRAN == 128)
-    uint8_t padding[12];                         /**< align padding for 128bit write granularity */
+    uint8_t padding[7];                          /**< align padding for 64bit write granularity */
+#elif (FDB_WRITE_GRAN == 128) || (FDB_WRITE_GRAN == 256)
+    uint8_t padding[15];                         /**< align padding for 128bit and 256bit write granularity */
 #endif
 };
 typedef struct kv_hdr_data *kv_hdr_data_t;
