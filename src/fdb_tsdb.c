@@ -25,13 +25,6 @@
 
 #if defined(FDB_USING_TSDB)
 
-<<<<<<< HEAD
-=======
-#if (FDB_WRITE_GRAN == 64) || (FDB_WRITE_GRAN == 128) || (FDB_WRITE_GRAN == 256)
-#error "Flash 64 or 128 or 256 bits write granularity is not supported in TSDB yet!"
-#endif
-
->>>>>>> 89c3a6c ([kvdb] Support 256bit write granularity for kvdb)
 /* magic word(`T`, `S`, `L`, `0`) */
 #define SECTOR_MAGIC_WORD                        0x304C5354
 
