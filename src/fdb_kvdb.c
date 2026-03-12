@@ -123,9 +123,11 @@ struct kv_hdr_data {
     uint8_t name_len;                            /**< name length */
     uint32_t value_len;                          /**< value length */
 #if (FDB_WRITE_GRAN == 64)
-    uint8_t padding[7];                          /**< align padding for 64bit write granularity */
-#elif (FDB_WRITE_GRAN == 128) || (FDB_WRITE_GRAN == 256)
-    uint8_t padding[15];                         /**< align padding for 128bit and 256bit write granularity */
+    uint8_t padding[8];                          /**< align padding for 64bit write granularity */
+#elif (FDB_WRITE_GRAN == 128)
+    uint8_t padding[8];                          /**< align padding for 128bit write granularity */
+#elif (FDB_WRITE_GRAN == 256)
+    uint8_t padding[8];                          /**< align padding for 256bit write granularity */
 #endif
 };
 typedef struct kv_hdr_data *kv_hdr_data_t;
