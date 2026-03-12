@@ -135,7 +135,7 @@ fdb_kv_set_blob(kvdb, "temp", fdb_blob_make(&blob, &temp_data, sizeof(temp_data)
 | db | Database Objects |
 | key | KV name |
 | blob | Return the blob value of KV through the blob object |
-| Return | Error Code |
+| Return | Length of blob data actually read |
 
 Example:
 

@@ -1192,7 +1192,9 @@ static fdb_err_t align_write(fdb_kvdb_t db, uint32_t addr, const uint32_t *buf, 
 #endif
 
     memset(align_data, FDB_BYTE_ERASED, align_data_size);
-    result = _fdb_flash_write((fdb_db_t) db, addr, buf, FDB_WG_ALIGN_DOWN(size), false);
+    if(FDB_WG_ALIGN_DOWN(size) > 0) {
+        result = _fdb_flash_write((fdb_db_t) db, addr, buf, FDB_WG_ALIGN_DOWN(size), false);
+    }
 
     align_remain = size - FDB_WG_ALIGN_DOWN(size);
     if (result == FDB_NO_ERR && align_remain) {

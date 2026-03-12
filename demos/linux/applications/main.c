@@ -13,6 +13,7 @@
 #define FDB_LOG_TAG "[main]"
 
 static pthread_mutex_t kv_locker, ts_locker;
+static pthread_mutexattr_t kv_locker_attr, ts_locker_attr;
 static uint32_t boot_count = 0;
 static time_t boot_time[10] = {0, 1, 2, 3};
 /* default KV nodes */
@@ -62,7 +63,9 @@ int main(void)
         default_kv.kvs = default_kv_table;
         default_kv.num = sizeof(default_kv_table) / sizeof(default_kv_table[0]);
         /* set the lock and unlock function if you want */
-        pthread_mutex_init(&kv_locker, NULL);
+        pthread_mutexattr_init(&kv_locker_attr);
+        pthread_mutexattr_settype(&kv_locker_attr, PTHREAD_MUTEX_RECURSIVE);
+        pthread_mutex_init(&kv_locker, &kv_locker_attr);
         fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_LOCK, (void *)lock);
         fdb_kvdb_control(&kvdb, FDB_KVDB_CTRL_SET_UNLOCK, (void *)unlock);
         /* set the sector and database max size */
@@ -99,7 +102,9 @@ int main(void)
 #ifdef FDB_USING_TSDB
     { /* TSDB Sample */
         /* set the lock and unlock function if you want */
-        pthread_mutex_init(&ts_locker, NULL);
+        pthread_mutexattr_init(&ts_locker_attr);
+        pthread_mutexattr_settype(&ts_locker_attr, PTHREAD_MUTEX_RECURSIVE);
+        pthread_mutex_init(&ts_locker, &ts_locker_attr);
         fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_SET_LOCK, (void *)lock);
         fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_SET_UNLOCK, (void *)unlock);
         /* set the sector and database max size */

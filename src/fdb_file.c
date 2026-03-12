@@ -263,7 +263,7 @@ fdb_err_t _fdb_file_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
     FILE *fp = open_db_file(db, addr, false);
     if (fp) {
         addr = addr % db->sec_size;
-        if ((fseek(fp, addr, SEEK_SET) != 0) || (fread(buf, size, 1, fp) != size))
+        if ((fseek(fp, addr, SEEK_SET) != 0) || (fread(buf, size, 1, fp) != 1))
             result = FDB_READ_ERR;
     } else {
         result = FDB_READ_ERR;
@@ -277,7 +277,7 @@ fdb_err_t _fdb_file_write(fdb_db_t db, uint32_t addr, const void *buf, size_t si
     FILE *fp = open_db_file(db, addr, false);
     if (fp) {
         addr = addr % db->sec_size;
-        if ((fseek(fp, addr, SEEK_SET) != 0) || (fwrite(buf, size, 1, fp) != size))
+        if ((fseek(fp, addr, SEEK_SET) != 0) || (fwrite(buf, size, 1, fp) != 1))
             result = FDB_READ_ERR;
         if(sync) {
             fflush(fp);
@@ -285,7 +285,6 @@ fdb_err_t _fdb_file_write(fdb_db_t db, uint32_t addr, const void *buf, size_t si
     } else {
         result = FDB_READ_ERR;
     }
-
     return result;
 }
 
