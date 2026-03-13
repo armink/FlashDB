@@ -107,6 +107,23 @@ struct log_idx_data {
     uint32_t log_len;                            /**< node total length (header + name + value), must align by FDB_WRITE_GRAN */
     uint32_t log_addr;                           /**< node address */
 #endif
+    // Autofill to the FDB WRITE GRAN alignment
+    uint8_t padding[
+        FDB_WG_ALIGN(
+            sizeof(uint8_t) * TSL_STATUS_TABLE_SIZE
+            + sizeof(fdb_time_t)
+#ifndef FDB_TSDB_FIXED_BLOB_SIZE
+            + sizeof(uint32_t) * 2
+#endif
+        ) -
+        (
+            sizeof(uint8_t) * TSL_STATUS_TABLE_SIZE
+            + sizeof(fdb_time_t)
+#ifndef FDB_TSDB_FIXED_BLOB_SIZE
+            + sizeof(uint32_t) * 2
+#endif
+        )
+    ];
 };
 typedef struct log_idx_data *log_idx_data_t;
 
