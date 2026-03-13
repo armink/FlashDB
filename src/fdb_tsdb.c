@@ -83,19 +83,16 @@
 struct sector_hdr_data {
     uint8_t status[FDB_STORE_STATUS_TABLE_SIZE]; /**< sector store status @see fdb_sector_store_status_t */
     uint8_t magic[TSL_UINT32_ALIGN_SIZE];        /**< magic word(`T`, `S`, `L`, `0`) */
-    uint8_t start_time[TSL_TIME_ALIGN_SIZE];   /**< the first start node's timestamp */
+    uint8_t start_time[TSL_TIME_ALIGN_SIZE];     /**< the first start node's timestamp */
     struct {
-        uint8_t time[TSL_TIME_ALIGN_SIZE];     /**< the last end node's timestamp */
+        uint8_t time[TSL_TIME_ALIGN_SIZE];       /**< the last end node's timestamp */
         uint8_t index[TSL_UINT32_ALIGN_SIZE];    /**< the last end node's index */
         uint8_t status[TSL_STATUS_TABLE_SIZE];   /**< end node status, @see fdb_tsl_status_t */
     } end_info[2];
     uint32_t reserved;
-#if (FDB_WRITE_GRAN == 64)
-    uint8_t padding[4];                          /**< align padding for 64bit write granularity */
-#endif
-#if (FDB_WRITE_GRAN == 128)
-    uint8_t padding[12];                         /**< align padding for 128bit write granularity */
-#endif
+
+    // Autofill to the FDB WRITE GRAN alignment
+    uint8_t padding[FDB_WG_ALIGN(sizeof(uint32_t))- sizeof(uint32_t)];
 };
 typedef struct sector_hdr_data *sector_hdr_data_t;
 
