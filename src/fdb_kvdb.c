@@ -434,7 +434,7 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
     sector->addr = addr;
     sector->magic = sec_hdr.magic;
     /* check magic word and combined value */
-    if (sector->magic != SECTOR_MAGIC_WORD || 
+    if (sector->magic != SECTOR_MAGIC_WORD ||
         (sec_hdr.combined != SECTOR_NOT_COMBINED && sec_hdr.combined != SECTOR_COMBINED)) {
         sector->check_ok = false;
         sector->combined = SECTOR_NOT_COMBINED;
@@ -1177,34 +1177,6 @@ static void gc_collect(fdb_kvdb_t db)
     gc_collect_by_free_size(db, db_max_size(db));
 }
 
-static fdb_err_t align_write(fdb_kvdb_t db, uint32_t addr, const uint32_t *buf, size_t size)
-{
-    fdb_err_t result = FDB_NO_ERR;
-    size_t align_remain;
-
-#if (FDB_WRITE_GRAN / 8 > 0)
-    uint8_t align_data[FDB_WRITE_GRAN / 8];
-    size_t align_data_size = sizeof(align_data);
-#else
-    /* For compatibility with C89 */
-    uint8_t align_data_u8, *align_data = &align_data_u8;
-    size_t align_data_size = 1;
-#endif
-
-    memset(align_data, FDB_BYTE_ERASED, align_data_size);
-    if(FDB_WG_ALIGN_DOWN(size) > 0) {
-        result = _fdb_flash_write((fdb_db_t) db, addr, buf, FDB_WG_ALIGN_DOWN(size), false);
-    }
-
-    align_remain = size - FDB_WG_ALIGN_DOWN(size);
-    if (result == FDB_NO_ERR && align_remain) {
-        memcpy(align_data, (uint8_t *) buf + FDB_WG_ALIGN_DOWN(size), align_remain);
-        result = _fdb_flash_write((fdb_db_t) db, addr + FDB_WG_ALIGN_DOWN(size), (uint32_t *) align_data,
-                align_data_size, false);
-    }
-
-    return result;
-}
 
 static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char *key, const void *value, size_t len)
 {
@@ -1818,9 +1790,9 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
 
     FDB_DEBUG("KVDB size is %" PRIu32 " bytes.\n", db_max_size(db));
     db_unlock(db);
-    
+
     result = _fdb_kv_load(db);
-    
+
     db_lock(db);
 #ifdef FDB_KV_AUTO_UPDATE
     if (result == FDB_NO_ERR) {
