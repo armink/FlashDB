@@ -319,7 +319,7 @@ fdb_err_t _fdb_flash_write(fdb_db_t db, uint32_t addr, const void *buf, size_t s
 
 }
 
-fdb_err_t _fdb_align_write(fdb_db_t db, uint32_t addr, const uint32_t *buf, size_t size)
+fdb_err_t _fdb_flash_write_align(fdb_db_t db, uint32_t addr, const uint32_t *buf, size_t size)
 {
     fdb_err_t result = FDB_NO_ERR;
     size_t align_remain;
