@@ -363,7 +363,7 @@ static fdb_err_t write_tsl(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time)
     /* write other index info */
     FLASH_WRITE(db, idx_addr + LOG_IDX_TS_OFFSET, &idx.time,  sizeof(struct log_idx_data) - LOG_IDX_TS_OFFSET, false);
     /* write blob data */
-    result = _fdb_flash_write_align(db, log_addr, blob->buf, blob->size);
+    result = _fdb_flash_write_align((fdb_db_t)db, log_addr, blob->buf, blob->size);
     if (result != FDB_NO_ERR){
         return result;
     }

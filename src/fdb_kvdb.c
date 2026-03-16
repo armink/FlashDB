@@ -1229,7 +1229,7 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
         }
         /* write key name */
         if (result == FDB_NO_ERR) {
-            result = _fdb_flash_write_align(db, kv_addr + KV_HDR_DATA_SIZE, (uint32_t *) key, kv_hdr.name_len);
+            result = _fdb_flash_write_align((fdb_db_t)db, kv_addr + KV_HDR_DATA_SIZE, (uint32_t *) key, kv_hdr.name_len);
 
 #ifdef FDB_KV_USING_CACHE
             if (!is_full) {
@@ -1241,7 +1241,7 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
         }
         /* write value */
         if (result == FDB_NO_ERR) {
-            result = _fdb_flash_write_align(db, kv_addr + KV_HDR_DATA_SIZE + FDB_WG_ALIGN(kv_hdr.name_len), value,
+            result = _fdb_flash_write_align((fdb_db_t)db, kv_addr + KV_HDR_DATA_SIZE + FDB_WG_ALIGN(kv_hdr.name_len), value,
                     kv_hdr.value_len);
         }
         /* change the KV status to KV_WRITE */
