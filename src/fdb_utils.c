@@ -318,3 +318,32 @@ fdb_err_t _fdb_flash_write(fdb_db_t db, uint32_t addr, const void *buf, size_t s
     return result;
 
 }
+
+fdb_err_t _fdb_flash_write_align(fdb_db_t db, uint32_t addr, const uint32_t *buf, size_t size)
+{
+    fdb_err_t result = FDB_NO_ERR;
+    size_t align_remain;
+
+#if (FDB_WRITE_GRAN / 8 > 0)
+    uint8_t align_data[FDB_WRITE_GRAN / 8];
+    size_t align_data_size = sizeof(align_data);
+#else
+    /* For compatibility with C89 */
+    uint8_t align_data_u8, *align_data = &align_data_u8;
+    size_t align_data_size = 1;
+#endif
+
+    memset(align_data, FDB_BYTE_ERASED, align_data_size);
+    if(FDB_WG_ALIGN_DOWN(size) > 0) {
+        result = _fdb_flash_write(db, addr, buf, FDB_WG_ALIGN_DOWN(size), false);
+    }
+
+    align_remain = size - FDB_WG_ALIGN_DOWN(size);
+    if (result == FDB_NO_ERR && align_remain) {
+        memcpy(align_data, (uint8_t *) buf + FDB_WG_ALIGN_DOWN(size), align_remain);
+        result = _fdb_flash_write(db, addr + FDB_WG_ALIGN_DOWN(size), (uint32_t *) align_data,
+                align_data_size, false);
+    }
+
+    return result;
+}
