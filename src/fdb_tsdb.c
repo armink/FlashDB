@@ -37,6 +37,21 @@
     #define TSL_TIME_ALIGN_SIZE  FDB_WG_ALIGN(sizeof(int32_t))
 #endif
 
+// Autofill to struct sector_hdr_data
+enum {
+    TSL_HDR_PADDING_SIZE = FDB_WG_ALIGN(sizeof(uint32_t)) - sizeof(uint32_t)
+};
+
+// Autofill to struct log_idx_data
+enum {
+#ifdef FDB_TSDB_FIXED_BLOB_SIZE
+    LOG_IDX_BASE_SIZE = TSL_STATUS_TABLE_SIZE + sizeof(fdb_time_t),
+#else
+    LOG_IDX_BASE_SIZE = TSL_STATUS_TABLE_SIZE + sizeof(fdb_time_t) + sizeof(uint32_t) * 2,
+#endif
+    LOG_IDX_PADDING_SIZE = FDB_WG_ALIGN(LOG_IDX_BASE_SIZE) - LOG_IDX_BASE_SIZE
+};
+
 #define SECTOR_HDR_DATA_SIZE                     (FDB_WG_ALIGN(sizeof(struct sector_hdr_data)))
 #define LOG_IDX_DATA_SIZE                        (FDB_WG_ALIGN(sizeof(struct log_idx_data)))
 #define LOG_IDX_TS_OFFSET                        ((unsigned long)(&((struct log_idx_data *)0)->time))
@@ -92,7 +107,9 @@ struct sector_hdr_data {
     uint32_t reserved;
 
     // Autofill to the FDB WRITE GRAN alignment
-    uint8_t padding[FDB_WG_ALIGN(sizeof(uint32_t))- sizeof(uint32_t)];
+#if TSL_HDR_PADDING_SIZE > 0
+     uint8_t padding[TSL_HDR_PADDING_SIZE];
+#endif
 };
 typedef struct sector_hdr_data *sector_hdr_data_t;
 
@@ -104,23 +121,11 @@ struct log_idx_data {
     uint32_t log_len;                            /**< node total length (header + name + value), must align by FDB_WRITE_GRAN */
     uint32_t log_addr;                           /**< node address */
 #endif
+
     // Autofill to the FDB WRITE GRAN alignment
-    uint8_t padding[
-        FDB_WG_ALIGN(
-            sizeof(uint8_t) * TSL_STATUS_TABLE_SIZE
-            + sizeof(fdb_time_t)
-#ifndef FDB_TSDB_FIXED_BLOB_SIZE
-            + sizeof(uint32_t) * 2
+#if LOG_IDX_PADDING_SIZE > 0
+    uint8_t padding[LOG_IDX_PADDING_SIZE];
 #endif
-        ) -
-        (
-            sizeof(uint8_t) * TSL_STATUS_TABLE_SIZE
-            + sizeof(fdb_time_t)
-#ifndef FDB_TSDB_FIXED_BLOB_SIZE
-            + sizeof(uint32_t) * 2
-#endif
-        )
-    ];
 };
 typedef struct log_idx_data *log_idx_data_t;
 
@@ -358,7 +363,7 @@ static fdb_err_t write_tsl(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t time)
     /* write other index info */
     FLASH_WRITE(db, idx_addr + LOG_IDX_TS_OFFSET, &idx.time,  sizeof(struct log_idx_data) - LOG_IDX_TS_OFFSET, false);
     /* write blob data */
-    result = align_write(db, log_addr, blob->buf, blob->size);
+    result = _fdb_align_write(db, log_addr, blob->buf, blob->size);
     if (result != FDB_NO_ERR){
         return result;
     }
