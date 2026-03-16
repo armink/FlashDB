@@ -2,8 +2,12 @@ name: AutoTestCI
 on: [push, pull_request]
 jobs:
   test:
-    name: AutoTest
+    name: "AutoTest (GRAN=${{ matrix.write_gran }})"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        write_gran: [1, 8, 32, 64, 128]
     env:
       TEST_BSP_ROOT: ../AutoTestBsp
       UTEST_RUNNER_PATH: ../UtestRunner
@@ -26,7 +30,7 @@ jobs:
         cp -rf inc/fdb_low_lvl.h $TEST_BSP_ROOT/packages/FlashDB/inc/fdb_low_lvl.h
         cp -rf inc/flashdb.h $TEST_BSP_ROOT/packages/FlashDB/inc/flashdb.h
         /opt/gcc-arm-none-eabi-10-2020-q4-major/bin/arm-none-eabi-gcc --version
-        scons -j$(nproc) -C $TEST_BSP_ROOT
+        scons --global-macros="FDB_WRITE_GRAN=${{ matrix.write_gran }}" -j$(nproc) -C $TEST_BSP_ROOT
     - name: Start test
       run: |
         python3 $UTEST_RUNNER_PATH/qemu_runner.py --elf $TEST_BSP_ROOT/rtthread.elf --sd $TEST_BSP_ROOT/sd.bin
