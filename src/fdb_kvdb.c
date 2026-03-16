@@ -1241,7 +1241,7 @@ static fdb_err_t create_kv_blob(fdb_kvdb_t db, kv_sec_info_t sector, const char 
         }
         /* write value */
         if (result == FDB_NO_ERR) {
-            result = _fdb_align_write(db, kv_addr + KV_HDR_DATA_SIZE + FDB_WG_ALIGN(kv_hdr.name_len), value,
+            result = _fdb_flash_write_align(db, kv_addr + KV_HDR_DATA_SIZE + FDB_WG_ALIGN(kv_hdr.name_len), value,
                     kv_hdr.value_len);
         }
         /* change the KV status to KV_WRITE */
