@@ -14,6 +14,7 @@
 
 #include "utest.h"
 #include <flashdb.h>
+#include <fdb_low_lvl.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -25,6 +26,25 @@
 #define TEST_TS_DELETED_COUNT         (TEST_TS_COUNT - TEST_TS_USER_STATUS1_COUNT)
 #define TEST_SECTOR_SIZE              4096
 #define TEST_TIME_STEP                2
+
+/* Dynamically compute how many variable-size TSLs (blob = int) fit in one sector.
+ * This ensures test_fdb_tsl_iter_by_time_1 always spans exactly TEST_ITER1_SECTORS
+ * (3 < N < sizeof(test_secs_info)) physical sectors for any FDB_WRITE_GRAN value,
+ * avoiding both the "array overflow" (gran=64) and "rollover" (gran=128) failures. */
+#define _TSIL_TSL_STATUS_SZ  FDB_STATUS_TABLE_SIZE(FDB_TSL_STATUS_NUM)
+#define _TSIL_IDX_BASE_SZ    (_TSIL_TSL_STATUS_SZ + sizeof(fdb_time_t) + sizeof(uint32_t) * 2)
+#define _TSIL_IDX_DATA_SZ    FDB_WG_ALIGN(_TSIL_IDX_BASE_SZ)
+#define _TSIL_U32_ALIGN_SZ   FDB_WG_ALIGN(sizeof(uint32_t))
+#define _TSIL_TIME_ALIGN_SZ  FDB_WG_ALIGN(sizeof(fdb_time_t))
+#define _TSIL_SEC_HDR_RAW_SZ (FDB_STORE_STATUS_TABLE_SIZE + _TSIL_U32_ALIGN_SZ + _TSIL_TIME_ALIGN_SZ \
+                              + 2 * (_TSIL_TIME_ALIGN_SZ + _TSIL_U32_ALIGN_SZ + _TSIL_TSL_STATUS_SZ) \
+                              + sizeof(uint32_t))
+#define _TSIL_SEC_HDR_SZ     FDB_WG_ALIGN(_TSIL_SEC_HDR_RAW_SZ)
+#define _TSIL_PER_SECTOR     ((TEST_SECTOR_SIZE - _TSIL_SEC_HDR_SZ) \
+                              / (_TSIL_IDX_DATA_SZ + FDB_WG_ALIGN(sizeof(int))))
+/* Fill 5 sectors — always > 2 (required by assertions) and < 10 (test_secs_info size) */
+#define TEST_ITER1_SECTORS   5
+#define TEST_ITER1_COUNT     (TEST_ITER1_SECTORS * _TSIL_PER_SECTOR)
 
 struct test_tls_data {
     int data;
@@ -338,8 +358,10 @@ static void test_fdb_tsl_iter_by_time_1(void)
     int data, i;
 
     fdb_tsl_clean(&test_tsdb);
-    /* make test data for more than 2 sectors */
-    for (data = 0; data < 800; data++) {
+    /* make test data for more than 2 sectors.
+     * TEST_ITER1_COUNT is computed from FDB_WRITE_GRAN so that exactly
+     * TEST_ITER1_SECTORS physical sectors are used, regardless of write granularity. */
+    for (data = 0; data < TEST_ITER1_COUNT; data++) {
         fdb_tsl_append(&test_tsdb, fdb_blob_make(&blob, &data, sizeof(data)));
     }
 
@@ -351,6 +373,9 @@ static void test_fdb_tsl_iter_by_time_1(void)
         test_secs_info[i].start_time = 0x7FFFFFFF;
         test_secs_info[i].end_time = 0;
     }
+    /* reset global DB time range before scanning */
+    test_db_start_time = 0x7FFFFFFF;
+    test_db_end_time = 0;
     /* get the the sectors info by iterator */
     fdb_tsl_iter_by_time(&test_tsdb, 0, 0x7FFFFFFF, get_sector_info_cb, RT_NULL);
     /* must found more than 2 sectors */
