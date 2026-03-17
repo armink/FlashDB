@@ -14,6 +14,7 @@
 
 #include "utest.h"
 #include <flashdb.h>
+#include <fdb_low_lvl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
@@ -30,7 +31,78 @@
 #define TEST_TS_PART_NAME             "fdb_kvdb1"
 #define TEST_KV_BLOB_NAME             "kv_blob_test"
 #define TEST_KV_NAME                  "kv_test"
-#define TEST_KV_VALUE_LEN              1200 /* only save 3 KVs in a 4096 sector */
+
+/* ------------------------------------------------------------------
+ * Dynamically compute TEST_KV_VALUE_LEN so that exactly 3 KVs fit
+ * per TEST_KVDB_SECTOR_SIZE-byte sector for ANY FDB_WRITE_GRAN value,
+ * AND so that the test_fdb_gc2 GC path works correctly.
+ *
+ * Let:
+ *   B       = _TKV_BASE  = KV_HDR_SZ + aligned_name
+ *   V       = TEST_KV_VALUE_LEN  (aligned to W)
+ *   kv_size = B + V
+ *   kv5_size= B + 2V  (kv5 value = 2×V)
+ *   kv4_size= B + 3V  (kv4 value = 3×V)
+ *   th      = _TKV_THRESHOLD = KV_HDR_SZ + FDB_KV_NAME_MAX
+ *   usable  = TEST_KVDB_SECTOR_SIZE - _TKV_SEC_HDR_SZ
+ *
+ * Three constraints, from LEAST to MOST strict:
+ *
+ *  [A] 4th KV does NOT fit (exactly 3 per sector):
+ *      V >= ceil((usable - 5B - 64) / 4)
+ *
+ *  [B] kv4 (3×V) occupies a full sector (no normal KV fits after it):
+ *      usable - (B+3V) <= (B+V) + th
+ *      V >= ceil((usable - 3B - 64) / 4)
+ *
+ *  [C] GC does NOT stop early when kv1+kv2 are moved into the initially
+ *      empty sector (sector3).  do_gc() stops when remain > free_size,
+ *      where free_size = kv5_size = B+2V.  We need:
+ *        usable - 2*(B+V)  <=  B + 2V
+ *        3984 - 3B  <=  4V
+ *      V >= ceil((usable - 3B) / 4)   ← STRICTEST BOUND (no -64 term)
+ *
+ * All three constraints reduce to the same form; [C] dominates.
+ * The minimum V satisfying [C] (ceiling integer division: (N+3)/4):
+ *
+ *   V_min = FDB_WG_ALIGN( (usable - 3B + 3) / 4 )
+ * ------------------------------------------------------------------*/
+
+/* write-gran alignment unit in bytes */
+#define _TKV_W                    ((FDB_WRITE_GRAN + 7) / 8)
+
+/* KV status table size */
+#define _TKV_KV_STATUS_SZ         FDB_STATUS_TABLE_SIZE(FDB_KV_STATUS_NUM)
+
+/* Sector header raw size (store_status + dirty_status + magic + combined + reserved) */
+#define _TKV_SEC_HDR_RAW_SZ       (FDB_STORE_STATUS_TABLE_SIZE + FDB_DIRTY_STATUS_TABLE_SIZE \
+                                   + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t))
+#define _TKV_SEC_HDR_SZ           FDB_WG_ALIGN(_TKV_SEC_HDR_RAW_SZ)
+
+/* KV header raw size (status + magic + len + crc32 + name_len + value_len) */
+#define _TKV_KV_HDR_RAW_SZ        (_TKV_KV_STATUS_SZ + sizeof(uint32_t) + sizeof(uint32_t) \
+                                   + sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint32_t))
+#define _TKV_KV_HDR_SZ            FDB_WG_ALIGN(_TKV_KV_HDR_RAW_SZ)
+
+/* FDB_SEC_REMAIN_THRESHOLD equivalent: KV_HDR_DATA_SIZE + FDB_KV_NAME_MAX */
+#define _TKV_THRESHOLD            (_TKV_KV_HDR_SZ + FDB_KV_NAME_MAX)
+
+/* name length of "kv0".."kv5", aligned */
+#define _TKV_NAME_ALIGNED         FDB_WG_ALIGN(3)
+
+/* usable data space per sector */
+#define _TKV_USABLE               (TEST_KVDB_SECTOR_SIZE - _TKV_SEC_HDR_SZ)
+
+/* per-KV base overhead: header + aligned name */
+#define _TKV_BASE                 (_TKV_KV_HDR_SZ + _TKV_NAME_ALIGNED)
+
+/* Minimum V satisfying constraint [C] (the strictest).
+ * Uses ceiling integer division: (N + 3) / 4. */
+#define _TKV_MAX_VAL_ALIGNED      FDB_WG_ALIGN((_TKV_USABLE - 3 * _TKV_BASE + 3) / 4)
+
+/* TEST_KV_VALUE_LEN: use aligned size directly (already a multiple of W) */
+#define TEST_KV_VALUE_LEN         _TKV_MAX_VAL_ALIGNED
+
 #define TEST_KV_MAX_NUM                8
 #define TEST_KVDB_SECTOR_SIZE          4096
 #define TEST_KVDB_SECTOR_NUM           4
