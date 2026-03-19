@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        write_gran: [1, 8, 32, 64, 128]
+        write_gran: [1, 8, 32, 64, 128, 256]
     env:
       TEST_BSP_ROOT: ../AutoTestBsp
       UTEST_RUNNER_PATH: ../UtestRunner
