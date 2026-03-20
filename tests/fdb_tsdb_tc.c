@@ -46,6 +46,14 @@
 #define TEST_ITER1_SECTORS   5
 #define TEST_ITER1_COUNT     (TEST_ITER1_SECTORS * _TSIL_PER_SECTOR)
 
+/* TSLs per sector when blob is logbuf-sized string (vs. int-sized blob used by _TSIL_PER_SECTOR) */
+#define _TSIL_LOGBUF_ALIGN_SZ  FDB_WG_ALIGN(sizeof(logbuf))
+#define _TSIL_PER_SECTOR_STR   ((TEST_SECTOR_SIZE - _TSIL_SEC_HDR_SZ) \
+                                / (_TSIL_IDX_DATA_SZ + _TSIL_LOGBUF_ALIGN_SZ))
+/* Use 14 sectors out of 16 (2-sector margin) so no ring-buffer wrap-around occurs */
+#define TEST_TS_COUNT          (14 * _TSIL_PER_SECTOR_STR)
+
+
 struct test_tls_data {
     int data;
     fdb_time_t time;
