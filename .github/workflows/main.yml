@@ -1,5 +1,5 @@
 name: AutoTestCI
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 jobs:
   test:
     name: "AutoTest (GRAN=${{ matrix.write_gran }})"
