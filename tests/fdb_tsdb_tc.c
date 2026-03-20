@@ -110,9 +110,6 @@ static void test_fdb_tsl_append(void)
         i += TEST_TIME_STEP;
         rt_snprintf(logbuf, sizeof(logbuf), "%d", i);
         uassert_true(fdb_tsl_append(&test_tsdb, fdb_blob_make(&blob, logbuf, rt_strnlen(logbuf, sizeof(logbuf)))) == FDB_NO_ERR);
-
-		fdb_tsl_iter(&test_tsdb, test_fdb_tsl_clean_cb, &count);
-		printf("iter count = %d\n", count);
     }
 }
 
