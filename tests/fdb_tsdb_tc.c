@@ -153,9 +153,14 @@ static void test_fdb_tsl_iter_by_time(void)
 static void test_fdb_tsl_query_count(void)
 {
     fdb_time_t from = 0, to = TEST_TS_COUNT * TEST_TIME_STEP;
+    uint32_t count;
 
     fdb_reboot();
-    uassert_true(fdb_tsl_query_count(&test_tsdb, from, to, FDB_TSL_WRITE) == TEST_TS_COUNT);
+    count = fdb_tsl_query_count(&test_tsdb, from, to, FDB_TSL_WRITE);
+    rt_kprintf("query_count from=%d to=%d => %u, expected=%u\n",
+               (int)from, (int)to, (unsigned)count, TEST_TS_COUNT);
+
+    uassert_true(count == TEST_TS_COUNT);
 }
 
 static bool est_fdb_tsl_set_status_cb(fdb_tsl_t tsl, void *arg)
