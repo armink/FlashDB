@@ -38,19 +38,22 @@
 #endif
 
 // Autofill to struct sector_hdr_data
-enum {
-    TSL_HDR_PADDING_SIZE = FDB_WG_ALIGN(sizeof(uint32_t)) - sizeof(uint32_t)
-};
+#define SECTOR_HDR_PADDING_SIZE                  (FDB_WG_ALIGN(4) - 4)
 
 // Autofill to struct log_idx_data
-enum {
-#ifdef FDB_TSDB_FIXED_BLOB_SIZE
-    LOG_IDX_BASE_SIZE = TSL_STATUS_TABLE_SIZE + sizeof(fdb_time_t),
+#ifdef FDB_USING_TIMESTAMP_64BIT
+#define _TSL_FDBTIME_SIZE                        (8)
 #else
-    LOG_IDX_BASE_SIZE = TSL_STATUS_TABLE_SIZE + sizeof(fdb_time_t) + sizeof(uint32_t) * 2,
+#define _TSL_FDBTIME_SIZE                        (4)
 #endif
-    LOG_IDX_PADDING_SIZE = FDB_WG_ALIGN(LOG_IDX_BASE_SIZE) - LOG_IDX_BASE_SIZE
-};
+
+#ifdef FDB_TSDB_FIXED_BLOB_SIZE
+#define LOG_IDX_BASE_SIZE                        (TSL_STATUS_TABLE_SIZE + _TSL_FDBTIME_SIZE)
+#else
+#define LOG_IDX_BASE_SIZE                        (TSL_STATUS_TABLE_SIZE + _TSL_FDBTIME_SIZE + 4 * 2)
+#endif
+
+#define LOG_IDX_PADDING_SIZE                     (FDB_WG_ALIGN(LOG_IDX_BASE_SIZE) - LOG_IDX_BASE_SIZE)
 
 #define SECTOR_HDR_DATA_SIZE                     (FDB_WG_ALIGN(sizeof(struct sector_hdr_data)))
 #define LOG_IDX_DATA_SIZE                        (FDB_WG_ALIGN(sizeof(struct log_idx_data)))
@@ -107,8 +110,8 @@ struct sector_hdr_data {
     uint32_t reserved;
 
     // Autofill to the FDB WRITE GRAN alignment
-#if TSL_HDR_PADDING_SIZE > 0
-     uint8_t padding[TSL_HDR_PADDING_SIZE];
+#if SECTOR_HDR_PADDING_SIZE > 0
+     uint8_t padding[SECTOR_HDR_PADDING_SIZE];
 #endif
 };
 typedef struct sector_hdr_data *sector_hdr_data_t;
