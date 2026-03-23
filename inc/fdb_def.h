@@ -162,6 +162,7 @@ struct fdb_kv {
     fdb_kv_status_t status;                      /**< node status, @see fdb_kv_status_t */
     bool crc_is_ok;                              /**< node CRC32 check is OK */
     uint8_t name_len;                            /**< name length */
+    uint16_t name_crc;                           /**< KV name's CRC32 low 16bit value (optional fast match) */
     uint32_t magic;                              /**< magic word(`K`, `V`, `4`, `0`) */
     uint32_t len;                                /**< node total length (header + name + value), must align by FDB_WRITE_GRAN */
     uint32_t value_len;                          /**< value length */
@@ -348,4 +349,3 @@ typedef struct fdb_blob *fdb_blob_t;
 #endif
 
 #endif /* _FDB_DEF_H_ */
-
