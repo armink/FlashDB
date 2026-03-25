@@ -53,13 +53,11 @@ In the demo project, the `main function` in `main.c` is the entry function. This
          *       "log": database name
          * "fdb_tsdb1": The flash partition name base on FAL. Please make sure it's in FAL partition table.
          *              Please change to YOUR partition name.
-         *    get_time: The get current timestamp function.
+         *        NULL: Function to get the current timestamp. Define if using RTC; leaving empty (NULL) uses sequential time.
          *         128: maximum length of each log
          *        NULL: The user data if you need, now is empty.
          */
-        result = fdb_tsdb_init(&tsdb, "log", "fdb_tsdb1", get_time, 128, NULL);
-        /* read last saved time for simulated timestamp */
-        fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_GET_LAST_TIME, &counts);
+        result = fdb_tsdb_init(&tsdb, "log", "fdb_tsdb1", NULL, 128, NULL);
 
         if (result != FDB_NO_ERR) {
             return -1;
@@ -86,9 +84,9 @@ For bare metal platforms, the lock and unlock callbacks are usually set to close
 
 ####  timestamp simulation
 
-For TSDB, the timestamp in the normal project should be obtained through RTC or network clock, but here to enhance the versatility of the demonstration project, use `fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_GET_LAST_TIME, &counts);` to get the last used timestamp of TSDB, Deposit in `counts`. Every time you use `get_time` to get the current time, it will add one to `counts` to simulate the action of moving forward in time and avoid repetition.
+In a normal TSDB project, the application should define the get_time function to obtain timestamps from a RTC. In this demonstration project, to keep things simple, passing NULL as the get_time function causes TSDB to use a default timestamp function that increments the last timestamp by one for each record, simulating forward-moving time.
 
-Therefore, the time stamp simulated by this method does not have the meaning of real-time time, just to make the time stamp inserted in each record not repeated.
+Tip: If you don’t need RTC timestamps and want to reduce flash usage, you can enable FDB_TSDB_USING_SEQ_MODE in fdb_cfg_template.h
 
 #### Example
 

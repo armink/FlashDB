@@ -28,8 +28,6 @@ static struct fdb_default_kv_node default_kv_table[] = {
 static struct fdb_kvdb kvdb = { 0 };
 /* TSDB object */
 struct fdb_tsdb tsdb = { 0 };
-/* counts for simulated timestamp */
-static int counts = 0;
 
 extern void kvdb_basic_sample(fdb_kvdb_t kvdb);
 extern void kvdb_type_string_sample(fdb_kvdb_t kvdb);
@@ -44,14 +42,6 @@ static void lock(fdb_db_t db)
 static void unlock(fdb_db_t db)
 {
     __enable_irq();
-}
-
-static fdb_time_t get_time(void)
-{
-    /* Using the counts instead of timestamp.
-     * Please change this function to return RTC time.
-     */
-    return ++counts;
 }
 
 int main(void)
@@ -102,13 +92,11 @@ int main(void)
          *       "log": database name
          * "fdb_tsdb1": The flash partition name base on FAL. Please make sure it's in FAL partition table.
          *              Please change to YOUR partition name.
-         *    get_time: The get current timestamp function.
+         *        NULL: Function to get the current timestamp. Define if using RTC; leaving empty (NULL) uses sequential time.
          *         128: maximum length of each log
          *        NULL: The user data if you need, now is empty.
          */
-        result = fdb_tsdb_init(&tsdb, "log", "fdb_tsdb1", get_time, 128, NULL);
-        /* read last saved time for simulated timestamp */
-        fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_GET_LAST_TIME, &counts);
+        result = fdb_tsdb_init(&tsdb, "log", "fdb_tsdb1", NULL, 128, NULL);
 
         if (result != FDB_NO_ERR) {
             return -1;
