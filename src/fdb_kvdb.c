@@ -17,9 +17,6 @@
 #include <fdb_low_lvl.h>
 
 #define FDB_LOG_TAG "[kv]"
-/* rewrite log prefix */
-#undef  FDB_LOG_PREFIX2
-#define FDB_LOG_PREFIX2()                         FDB_PRINT("[%s][%s] ", db_name(db), _fdb_db_path((fdb_db_t)db))
 
 #if defined(FDB_USING_KVDB)
 
@@ -656,8 +653,8 @@ fdb_kv_t fdb_kv_get_obj(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
 {
     bool find_ok = false;
 
-    if (!db_init_ok(db)) {
-        FDB_INFO("Error: KV (%s) isn't initialize OK.\n", db_name(db));
+   if (!db_init_ok(db)) {
+        FDB_INFO("Error: KV isn't initialize OK.\n");
         return 0;
     }
 
@@ -703,7 +700,7 @@ size_t fdb_kv_get_blob(fdb_kvdb_t db, const char *key, fdb_blob_t blob)
     size_t read_len = 0;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: KV (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: KV isn't initialize OK.\n");
         return 0;
     }
 
@@ -1277,7 +1274,7 @@ fdb_err_t fdb_kv_del(fdb_kvdb_t db, const char *key)
     fdb_err_t result = FDB_NO_ERR;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: KV (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: KV isn't initialize OK.\n");
         return FDB_INIT_FAILED;
     }
 
@@ -1341,7 +1338,7 @@ fdb_err_t fdb_kv_set_blob(fdb_kvdb_t db, const char *key, fdb_blob_t blob)
     fdb_err_t result = FDB_NO_ERR;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: KV (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: KV isn't initialize OK.\n");
         return FDB_INIT_FAILED;
     }
 
@@ -1489,7 +1486,7 @@ void fdb_kv_print(fdb_kvdb_t db)
     size_t using_size = 0;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: KV (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: KV isn't initialize OK.\n");
         return;
     }
 
@@ -1910,7 +1907,7 @@ fdb_err_t fdb_kvdb_check(fdb_kvdb_t db)
     struct fdb_kv kv;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: KV (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: KV isn't initialize OK.\n");
         return FDB_INIT_FAILED;
     }
 
