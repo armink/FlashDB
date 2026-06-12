@@ -805,6 +805,28 @@ size_t fdb_tsl_query_count(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_ts
 }
 
 /**
+ * Get the maximum number of blobs that a TSL can hold, assuming 
+ * all blobs are max_len (or FDB_TSDB_FIXED_BLOB_SIZE if defined).
+ *
+ * @param db database object
+ * @return the database capacity
+ */
+size_t fdb_tsl_max_blob_count(fdb_tsdb_t db)
+{
+#ifdef FDB_TSDB_FIXED_BLOB_SIZE
+    size_t max_blob_len = FDB_TSDB_FIXED_BLOB_SIZE;
+#else
+    size_t max_blob_len = db->max_len;
+#endif
+
+    size_t sec_size = db_sec_size(db) - SECTOR_HDR_DATA_SIZE;
+    size_t blob_size = LOG_IDX_DATA_SIZE + FDB_WG_ALIGN(max_blob_len);
+    size_t n_sec = db_max_size(db) / db_sec_size(db);
+
+    return n_sec * (sec_size / blob_size);
+}
+
+/**
  * Set the TSL status.
  *
  * @param db database object

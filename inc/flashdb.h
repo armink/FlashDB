@@ -65,6 +65,7 @@ void       fdb_tsl_iter        (fdb_tsdb_t db, fdb_tsl_cb cb, void *cb_arg);
 void       fdb_tsl_iter_reverse(fdb_tsdb_t db, fdb_tsl_cb cb, void *cb_arg);
 void       fdb_tsl_iter_by_time(fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl_cb cb, void *cb_arg);
 size_t     fdb_tsl_query_count (fdb_tsdb_t db, fdb_time_t from, fdb_time_t to, fdb_tsl_status_t status);
+size_t     fdb_tsl_max_blob_count(fdb_tsdb_t db);
 fdb_err_t  fdb_tsl_set_status  (fdb_tsdb_t db, fdb_tsl_t tsl, fdb_tsl_status_t status);
 void       fdb_tsl_clean       (fdb_tsdb_t db);
 fdb_blob_t fdb_tsl_to_blob     (fdb_tsl_t tsl, fdb_blob_t blob);
