@@ -1643,7 +1643,33 @@ static fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
     /* all sector header check failed */
     if (check_failed_count == SECTOR_NUM) {
         FDB_INFO("All sector header is incorrect. Set it to default.\n");
-        fdb_kv_set_default(db);
+        uint32_t  i, value_len;
+        /* lock the KV cache */
+        db_lock(db);
+#ifdef FDB_KV_USING_CACHE
+        for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
+            db->kv_cache_table[i].addr = FDB_DATA_UNUSED;
+        }
+#endif /* FDB_KV_USING_CACHE */
+
+        /* create default KV */
+        for (i = 0; i < db->default_kvs.num; i++) {
+            /* It seems to be a string when value length is 0.
+            * This mechanism is for compatibility with older versions (less then V4.0). */
+            if (db->default_kvs.kvs[i].value_len == 0) {
+                value_len = strlen(db->default_kvs.kvs[i].value);
+            } else {
+                value_len = db->default_kvs.kvs[i].value_len;
+            }
+            sector.empty_kv = FAILED_ADDR;
+            create_kv_blob(db, &sector, db->default_kvs.kvs[i].key, db->default_kvs.kvs[i].value, value_len);
+            if (result != FDB_NO_ERR) {
+                break;
+            }
+        }
+        db_oldest_addr(db) = 0;
+        /* unlock the KV cache */
+        db_unlock(db);
     }
 
     /* check all sector header for recovery GC */
