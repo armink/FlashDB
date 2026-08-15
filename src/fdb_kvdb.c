@@ -897,6 +897,7 @@ static bool sector_statistics_cb(kv_sec_info_t sector, void *arg1, void *arg2)
 
 static bool alloc_kv_cb(kv_sec_info_t sector, void *arg1, void *arg2)
 {
+    (void)arg2;
     struct alloc_kv_cb_args *arg = arg1;
 
     /* 1. sector has space
@@ -1111,6 +1112,7 @@ static bool gc_check_cb(kv_sec_info_t sector, void *arg1, void *arg2)
 
 static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
 {
+    (void)arg2;
     struct fdb_kv kv;
     struct gc_cb_args *gc = (struct gc_cb_args *)arg1;
     fdb_kvdb_t db = gc->db;
@@ -1580,6 +1582,7 @@ static bool check_sec_hdr_cb(kv_sec_info_t sector, void *arg1, void *arg2)
 
 static bool check_and_recovery_gc_cb(kv_sec_info_t sector, void *arg1, void *arg2)
 {
+    (void)arg2;
     fdb_kvdb_t db = arg1;
 
     if (sector->check_ok && sector->status.dirty == FDB_SECTOR_DIRTY_GC) {
@@ -1594,6 +1597,7 @@ static bool check_and_recovery_gc_cb(kv_sec_info_t sector, void *arg1, void *arg
 
 static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
 {
+    (void)arg2;
     fdb_kvdb_t db = arg1;
 
     /* recovery the prepare deleted KV */

@@ -865,6 +865,7 @@ fdb_blob_t fdb_tsl_to_blob(fdb_tsl_t tsl, fdb_blob_t blob)
 
 static bool check_sec_hdr_cb(tsdb_sec_info_t sector, void *arg1, void *arg2)
 {
+    (void)arg2;
     struct check_sec_hdr_cb_args *arg = arg1;
     fdb_tsdb_t db = arg->db;
 
@@ -892,6 +893,7 @@ static bool check_sec_hdr_cb(tsdb_sec_info_t sector, void *arg1, void *arg2)
 }
 static bool format_all_cb(tsdb_sec_info_t sector, void *arg1, void *arg2)
 {
+    (void)arg2;
     fdb_tsdb_t db = arg1;
 
     format_sector(db, sector->addr);
