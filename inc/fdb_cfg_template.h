@@ -29,6 +29,13 @@
  * Warning: If defined will be incompatible with variable blob flash store or if fixed blob size is later changed */
 /* #define FDB_TSDB_FIXED_BLOB_SIZE 4 */
 
+
+/* Use sequential mode - eliminates per-entry timestamp storage by calculating timestamps
+ * on-the-fly, saving sizeof(fdb_time_t).
+ * In this mode, timestamps increment by 1; providing a non-NULL get_time causes an ASSERT.
+ * Warning: If defined will be incompatible with time flash store */
+/* #define FDB_TSDB_USING_SEQ_MODE */
+
 /* Using FAL storage mode */
 #define FDB_USING_FAL_MODE
 

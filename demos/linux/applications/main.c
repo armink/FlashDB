@@ -27,8 +27,6 @@ static struct fdb_default_kv_node default_kv_table[] = {
 static struct fdb_kvdb kvdb = { 0 };
 /* TSDB object */
 struct fdb_tsdb tsdb = { 0 };
-/* counts for simulated timestamp */
-static int counts = 0;
 
 extern void kvdb_basic_sample(fdb_kvdb_t kvdb);
 extern void kvdb_type_string_sample(fdb_kvdb_t kvdb);
@@ -45,8 +43,10 @@ static void unlock(fdb_db_t db)
     pthread_mutex_unlock((pthread_mutex_t *)db->user_data);
 }
 
-static fdb_time_t get_time(void)
+static fdb_time_t get_time(fdb_tsdb_t db)
 {
+    /* db not used to get time */
+    (void)db;
     return time(NULL);
 }
 
@@ -125,8 +125,6 @@ int main(void)
          *   ts_locker: The locker object.
          */
         result = fdb_tsdb_init(&tsdb, "log", "fdb_tsdb1", get_time, 128, &ts_locker);
-        /* read last saved time for simulated timestamp */
-        fdb_tsdb_control(&tsdb, FDB_TSDB_CTRL_GET_LAST_TIME, &counts);
 
         if (result != FDB_NO_ERR) {
             return -1;
