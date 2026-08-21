@@ -159,17 +159,30 @@ fdb_err_t _fdb_file_erase(fdb_db_t db, uint32_t addr, size_t size)
     fdb_err_t result = FDB_NO_ERR;
     int fd = open_db_file(db, addr, true);
     if (fd > 0) {
+#if defined(__linux__)
+#define BUF_SIZE 4096
+#else
 #define BUF_SIZE 32
+#endif
         uint8_t buf[BUF_SIZE];
-        size_t i;
-        lseek(fd, 0, SEEK_SET);
-        for (i = 0; i * BUF_SIZE < size; i++)
-        {
-            memset(buf, 0xFF, BUF_SIZE);
-            write(fd, buf, BUF_SIZE);
-        }
         memset(buf, 0xFF, BUF_SIZE);
-        write(fd, buf, size - i * BUF_SIZE);
+        lseek(fd, 0, SEEK_SET);
+
+        size_t to_write;
+        ssize_t ret;
+        // 每次循环计算真实该写的长度
+        for (size_t written = 0; written < size; )
+        {
+            to_write = (size - written > BUF_SIZE) ? BUF_SIZE : (size - written);
+            ret = write(fd, buf, to_write);
+
+            if (ret <= 0) { // 防止文件系统报错死循环
+                result = FDB_ERASE_ERR;
+                break;
+            }
+            written += (size_t)ret;
+        }
+
         fsync(fd);
     } else {
         result = FDB_ERASE_ERR;
@@ -294,17 +307,30 @@ fdb_err_t _fdb_file_erase(fdb_db_t db, uint32_t addr, size_t size)
 
     FILE *fp = open_db_file(db, addr, true);
     if (fp != NULL) {
+#if defined(__linux__)
+#define BUF_SIZE 4096
+#else
 #define BUF_SIZE 32
+#endif
         uint8_t buf[BUF_SIZE];
-        size_t i;
+        size_t to_write, ret;
         fseek(fp, 0, SEEK_SET);
-        for (i = 0; i * BUF_SIZE < size; i++)
-        {
-            memset(buf, 0xFF, BUF_SIZE);
-            fwrite(buf, BUF_SIZE, 1, fp);
-        }
         memset(buf, 0xFF, BUF_SIZE);
-        fwrite(buf, size - i * BUF_SIZE, 1, fp);
+
+        for (size_t written = 0; written < size; )
+        {
+            to_write = (size - written > BUF_SIZE) ? BUF_SIZE : (size - written);
+
+            // 这样返回实际写入的字节数，方便做安全校验
+            ret = fwrite(buf, 1, to_write, fp);
+
+            if (ret != to_write) {
+                result = FDB_ERASE_ERR;
+                break;
+            }
+            written += ret;
+        }
+
         fflush(fp);
     } else {
         result = FDB_ERASE_ERR;

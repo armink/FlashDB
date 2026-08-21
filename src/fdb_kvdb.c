@@ -1033,7 +1033,11 @@ static fdb_err_t move_kv(fdb_kvdb_t db, fdb_kv_t kv)
     }
     /* start move the KV */
     {
+#if defined(__linux__)
+        uint8_t buf[4096];
+#else
         uint8_t buf[32];
+#endif
         size_t len, size, kv_len = kv->len;
 
         /* update the new KV sector status first */
