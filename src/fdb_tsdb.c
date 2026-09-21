@@ -1049,6 +1049,7 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
     if (check_sec_arg.check_failed) {
         if (db->parent.not_formatable) {
             result = FDB_READ_ERR;
+			db_unlock(db);
             goto __exit;
         } else {
             tsl_format_all(db);
