@@ -940,6 +940,58 @@ static void test_fdb_kvdb_set_default(void)
     uassert_true(fdb_kv_set_default(&test_kvdb) == FDB_NO_ERR);
 }
 
+#if FDB_USING_READ_CACHE
+/*
+ * The read cache is borrowed, not owned: it is allocated while the database is
+ * loaded and given back when that loading phase ends, so a running database never
+ * keeps a sector sized buffer in RAM. This case pins down that contract, and that
+ * a run which goes through the cache reads back what was written.
+ */
+static void test_fdb_read_cache(void)
+{
+    struct fdb_kv_iterator itr;
+    char key[16], value[16], *read_value;
+    fdb_err_t result = FDB_NO_ERR;
+    uint32_t i, loaded = 0;
+
+    /* no phase is open here, so no window may be held */
+    uassert_null(test_kvdb.parent.read_cache);
+
+    for (i = 0; i < TEST_KV_MAX_NUM; i++) {
+        snprintf(key, sizeof(key), "rc_%u", i);
+        snprintf(value, sizeof(value), "%u", i);
+        result = fdb_kv_set(&test_kvdb, key, value);
+        uassert_true(result == FDB_NO_ERR);
+        /* a single key write at run time must not allocate the window */
+        uassert_null(test_kvdb.parent.read_cache);
+    }
+
+    /* a full iteration loads the database, so it may borrow the window ... */
+    fdb_kv_iterator_init(&test_kvdb, &itr);
+    while (fdb_kv_iterate(&test_kvdb, &itr)) {
+        loaded++;
+    }
+    uassert_int_equal(loaded, TEST_KV_MAX_NUM);
+    /* ... and it is given back as soon as the iteration ends */
+    uassert_null(test_kvdb.parent.read_cache);
+
+    /* what the cached run reads back must be what was written */
+    for (i = 0; i < TEST_KV_MAX_NUM; i++) {
+        snprintf(key, sizeof(key), "rc_%u", i);
+        snprintf(value, sizeof(value), "%u", i);
+        read_value = fdb_kv_get(&test_kvdb, key);
+        uassert_not_null(read_value);
+        uassert_str_equal(read_value, value);
+    }
+
+    /* leave the database as the following cases expect it */
+    for (i = 0; i < TEST_KV_MAX_NUM; i++) {
+        snprintf(key, sizeof(key), "rc_%u", i);
+        uassert_true(fdb_kv_del(&test_kvdb, key) == FDB_NO_ERR);
+    }
+}
+#endif /* FDB_USING_READ_CACHE */
+
 
 static rt_err_t utest_tc_init(void)
 {
@@ -972,6 +1024,9 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_gc2);
     UTEST_UNIT_RUN(test_fdb_scale_up);
     UTEST_UNIT_RUN(test_fdb_kvdb_set_default);
+#if FDB_USING_READ_CACHE
+    UTEST_UNIT_RUN(test_fdb_read_cache);
+#endif
     UTEST_UNIT_RUN(test_fdb_kvdb_deinit);
 }
 UTEST_TC_EXPORT(testcase, "packages.system.flashdb.kvdb", utest_tc_init, utest_tc_cleanup, 20);

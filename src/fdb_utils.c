@@ -258,6 +258,13 @@ fdb_err_t _fdb_flash_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
 {
     fdb_err_t result = FDB_NO_ERR;
 
+    /* the read cache is above the storage layer, so it covers every backend */
+#if FDB_USING_READ_CACHE
+    if (_fdb_read_cache_read(db, addr, buf, size)) {
+        return FDB_NO_ERR;
+    }
+#endif
+
     if (db->file_mode) {
 #ifdef FDB_USING_FILE_MODE
         return _fdb_file_read(db, addr, buf, size);
@@ -279,6 +286,11 @@ fdb_err_t _fdb_flash_erase(fdb_db_t db, uint32_t addr, size_t size)
 {
     fdb_err_t result = FDB_NO_ERR;
 
+    /* drop the cached copy before the sector changes */
+#if FDB_USING_READ_CACHE
+    _fdb_read_cache_invalidate(db, addr);
+#endif
+
     if (db->file_mode) {
 #ifdef FDB_USING_FILE_MODE
         return _fdb_file_erase(db, addr, size);
@@ -299,6 +311,11 @@ fdb_err_t _fdb_flash_erase(fdb_db_t db, uint32_t addr, size_t size)
 fdb_err_t _fdb_flash_write(fdb_db_t db, uint32_t addr, const void *buf, size_t size, bool sync)
 {
     fdb_err_t result = FDB_NO_ERR;
+
+    /* drop the cached copy before the data changes */
+#if FDB_USING_READ_CACHE
+    _fdb_read_cache_invalidate(db, addr);
+#endif
 
     if (db->file_mode) {
 #ifdef FDB_USING_FILE_MODE

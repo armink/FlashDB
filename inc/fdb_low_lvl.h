@@ -68,4 +68,9 @@ fdb_err_t _fdb_flash_write(fdb_db_t db, uint32_t addr, const void *buf, size_t s
 
 fdb_err_t _fdb_flash_write_align(fdb_db_t db, uint32_t addr, const uint32_t *buf, size_t size);
 
+fdb_err_t _fdb_read_cache_begin(fdb_db_t db, uint32_t sec_addr);
+bool _fdb_read_cache_read(fdb_db_t db, uint32_t addr, void *buf, size_t size);
+void _fdb_read_cache_invalidate(fdb_db_t db, uint32_t addr);
+void _fdb_read_cache_release(fdb_db_t db);
+
 #endif /* _FDB_LOW_LVL_H_ */
