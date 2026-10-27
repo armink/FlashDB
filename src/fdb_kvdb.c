@@ -491,8 +491,19 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
     } else {
         kv_sec_info_t sec_cache = get_sector_from_cache(db, sector->addr);
         if (!sec_cache) {
-            sector->empty_kv = FAILED_ADDR;
-            sector->remain = 0;
+            if (sector->status.store == FDB_SECTOR_STORE_USING ||
+                sector->status.store == FDB_SECTOR_STORE_FULL) {
+                /* The sector stores KV: the KV searcher needs empty_kv to stop
+                 * early instead of scanning the whole (mostly erased) sector.
+                 * Search it once here, it costs a single full sector read while
+                 * every later KV search of this process reuses it from cache. */
+                sector->empty_kv = _fdb_continue_ff_addr((fdb_db_t)db,
+                        sector->addr + SECTOR_HDR_DATA_SIZE, sector->addr + db_sec_size(db));
+                sector->remain = db_sec_size(db) - (sector->empty_kv - sector->addr);
+            } else {
+                sector->empty_kv = FAILED_ADDR;
+                sector->remain = 0;
+            }
             update_sector_cache(db, sector);
         }
 #endif
