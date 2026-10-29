@@ -81,6 +81,17 @@ FlashDB 内部存储结构由 N 个扇区组成，每次格式化时是以扇区
 | ---- | ---------- |
 | db   | 数据库对象 |
 
+### 检查 KVDB 完整性
+
+遍历 KVDB 中的所有扇区及 KV ，校验每个 KV 的 CRC32 ，用于检测存储数据是否损坏。该接口会读取整个数据库，耗时较长，通常只在初始化失败排查或产品自检时使用。
+
+`fdb_err_t fdb_kvdb_check(fdb_kvdb_t db)`
+
+| 参数 | 描述 |
+| ---- | ---- |
+| db   | 数据库对象 |
+| 返回 | 错误码，`FDB_NO_ERR` 表示检查通过；非 `FDB_NO_ERR` 表示存在读取或校验失败（如 `FDB_READ_ERR`） |
+
 ### 设置 KV
 
 使用此方法可以实现对 KV 的增加和修改功能。
@@ -251,7 +262,7 @@ if (blob.saved.len > 0) {
 | name      | 数据库名称                                             |
 | path      | FAL 模式：分区表中的分区名，文件模式：数据库保存的路径 |
 | get_time  | 获取当前时间戳的函数                                   |
-| max_len   | 每条 TSL 的最大长度                                    |
+| max_len   | 每条 TSL 的最大长度，必须小于扇区大小                  |
 | user_data | 用户自定义数据，没有时传入 NULL                        |
 | 返回      | 错误码                                                 |
 
@@ -302,6 +313,21 @@ if (blob.saved.len > 0) {
 | db   | 数据库对象                  |
 | blob | blob  对象，做为 TSL 的数据 |
 | 返回 | 错误码                      |
+
+> 时间戳由 `fdb_tsdb_init` 时传入的 `get_time` 提供，且必须大于上一条 TSL 的时间戳，否则该条 TSL 会被丢弃并返回 `FDB_WRITE_ERR` 。如果定义了 `FDB_TSDB_FIXED_BLOB_SIZE` ，blob 的长度必须严格等于该值。
+
+### 指定时间戳追加 TSL
+
+与 `fdb_tsl_append` 相同，但使用调用者传入的时间戳，而不是 `get_time` 返回的当前时间，适合补录或离线导入数据的场景。
+
+`fdb_err_t fdb_tsl_append_with_ts(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t timestamp)`
+
+| 参数      | 描述                                                     |
+| --------- | -------------------------------------------------------- |
+| db        | 数据库对象                                               |
+| blob      | blob 对象，做为 TSL 的数据                               |
+| timestamp | 该条 TSL 的时间戳，必须大于上一条 TSL 的时间戳，否则会被丢弃 |
+| 返回      | 错误码                                                   |
 
 ### 迭代 TSL
 
@@ -356,6 +382,17 @@ if (blob.saved.len > 0) {
 | to     | 结束时间戳     |
 | status | TSL 的状态条件 |
 | 返回   | 数量           |
+
+### 查询 TSDB 的容量
+
+按每条 TSL 都是最大长度（`fdb_tsdb_init` 的 `max_len` ，若定义了 `FDB_TSDB_FIXED_BLOB_SIZE` 则为该值）估算整个 TSDB 最多可存放的 TSL 条数，常用于评估数据库容量。
+
+`size_t fdb_tsl_max_blob_count(fdb_tsdb_t db)`
+
+| 参数 | 描述         |
+| ---- | ------------ |
+| db   | 数据库对象   |
+| 返回 | TSL 最大条数 |
 
 ### 设置 TSL 状态
 

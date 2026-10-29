@@ -83,6 +83,11 @@ const struct fal_flash_dev stm32f2_onchip_flash =
   - stm32f2/f4: 8 bit
   - stm32f1: 32 bit
   - stm32l4: 64 bit
+  - stm32f7: 64 bit
+  - stm32h5: 128 bit
+  - stm32h7: 256 bit
+
+The `FDB_WRITE_GRAN` of FlashDB must not be less than the Flash write granularity above, and the maximum write granularity FlashDB supports is 256 bit.
 
 ### Define the flash device table
 

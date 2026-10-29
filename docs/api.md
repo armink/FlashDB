@@ -81,6 +81,17 @@ By default, KVDB will use 1 times the block size as the sector size, that is, 40
 | ---------- | ---------------- |
 | db         | Database Objects |
 
+### Check KVDB integrity
+
+Traverses every sector and KV in the KVDB and verifies the CRC32 of each KV, to detect corrupted storage data. As it reads the whole database it takes a while, so it is normally only used when diagnosing a failed initialization or during a product self-test.
+
+`fdb_err_t fdb_kvdb_check(fdb_kvdb_t db)`
+
+| Parameters | Description |
+| ---- | ---------- |
+| db | Database Objects |
+| Return | Error Code, `FDB_NO_ERR` means the check passed, any other value means a read or verification failed (e.g. `FDB_READ_ERR`) |
+
 ### Set KV
 
 This method can be used to increase and modify KV.
@@ -251,7 +262,7 @@ Using this iterator API, all KVs in the entire KVDB can be traversed.
 | name | Database name |
 | path | FAL mode: the partition name in the partition table, file mode: the path where the database is saved |
 | get_time | Function to get the current timestamp |
-| max_len | Maximum length of each TSL |
+| max_len | Maximum length of each TSL, it MUST be less than the sector size |
 | user_data | User-defined data, NULL if not available |
 | Return | Error Code |
 
@@ -301,6 +312,21 @@ For TSDB, the process of adding TSL is the process of appending a new TSL to the
 | ---- | --------------------------- |
 | db | Database Objects |
 | blob | blob object, as TSL data |
+| Return | Error Code |
+
+> The timestamp comes from the `get_time` passed to `fdb_tsdb_init` and MUST be greater than the timestamp of the last TSL, otherwise the TSL is dropped and `FDB_WRITE_ERR` is returned. When `FDB_TSDB_FIXED_BLOB_SIZE` is defined, the blob length MUST be exactly that value.
+
+### Append TSL with a specific timestamp
+
+Same as `fdb_tsl_append`, but uses the timestamp passed by the caller instead of the current time returned by `get_time`. It fits backfilling or importing offline data.
+
+`fdb_err_t fdb_tsl_append_with_ts(fdb_tsdb_t db, fdb_blob_t blob, fdb_time_t timestamp)`
+
+| Parameters | Description |
+| ---- | ------------------------------------------------------------ |
+| db | Database Objects |
+| blob | blob object, as TSL data |
+| timestamp | Timestamp of this TSL, it MUST be greater than the timestamp of the last TSL, otherwise the TSL is dropped |
 | Return | Error Code |
 
 ### Iterative TSL
@@ -356,6 +382,17 @@ According to the incoming time period, query the number of TSLs that meet the st
 | to | End timestamp |
 | status | TSL status conditions |
 | Return | Quantity |
+
+### Query the TSDB capacity
+
+Estimates the maximum number of TSLs the whole TSDB can hold, assuming every TSL is of the maximum length (the `max_len` of `fdb_tsdb_init`, or `FDB_TSDB_FIXED_BLOB_SIZE` when it is defined). It is typically used to assess the database capacity.
+
+`size_t fdb_tsl_max_blob_count(fdb_tsdb_t db)`
+
+| Parameters | Description |
+| ---- | -------------- |
+| db | Database Objects |
+| Return | Maximum number of TSLs |
 
 ### Set TSL status
 

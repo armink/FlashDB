@@ -83,6 +83,11 @@ const struct fal_flash_dev stm32f2_onchip_flash =
   - stm32f2/f4: 8 bit
   - stm32f1: 32 bit
   - stm32l4: 64 bit
+  - stm32f7: 64 bit
+  - stm32h5: 128 bit
+  - stm32h7: 256 bit
+
+FlashDB 的 `FDB_WRITE_GRAN` 需要不小于上述 Flash 写粒度，FlashDB 支持的最大写粒度为 256 bit。
 
 ### 定义 flash 设备表
 
