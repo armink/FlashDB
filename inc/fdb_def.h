@@ -287,6 +287,11 @@ struct fdb_db {
 #endif /* FDB_USING_FILE_MODE */
     uint32_t cur_sec;                            /**< current operate sector address  */
 #endif
+#if FDB_USING_READ_CACHE
+    void *read_cache;                            /**< transient sector read cache state, see fdb_read_cache.c */
+    uint32_t read_cache_sec;                     /**< the sector a scan announced, the window is allocated for it */
+    bool read_cache_load;                        /**< the window may be allocated, only inside a loading phase */
+#endif
     void (*lock)(fdb_db_t db);                   /**< lock the database operate */
     void (*unlock)(fdb_db_t db);                 /**< unlock the database operate */
 

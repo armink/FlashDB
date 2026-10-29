@@ -44,6 +44,42 @@
 /* Using file storage mode by POSIX file API, like open/read/write/close */
 /* #define FDB_USING_FILE_POSIX_MODE */
 
+/* Using a transient sector read cache.
+ * FlashDB keeps no persisted record of how much of a sector is used, so a KV
+ * search has to read the sector chunk by chunk up to its end. This cache turns
+ * that scan into a single read of the sector, see fdb_read_cache.c.
+ *
+ * The cache lives inside the initialization and inside an application driven
+ * iteration, and is given back at the end of each of those two phases, so a single
+ * key read or write at run time never holds a sector sized buffer in RAM.
+ *
+ * Define it to 1 to enable the cache. It carries a value instead of being defined
+ * or not, so a build can override it without editing this file. It always takes a
+ * value: a bare -DFDB_USING_READ_CACHE would leave the expressions without one.
+ */
+#ifndef FDB_USING_READ_CACHE
+#define FDB_USING_READ_CACHE 0
+#endif
+
+#if FDB_USING_READ_CACHE
+/* The number of bytes the read cache copies into RAM at once. It is both the RAM
+ * window and the granularity of every copy: the window covering the address of a
+ * read is copied on demand, when the read lands outside the one currently held.
+ *
+ * 0 (the default) makes the window the whole sector, which is the right value
+ * for a normal build: the scan this cache exists for walks to the end of the
+ * sector anyway, so copying the sector in one piece is the fewest accesses the
+ * loading phase can take.
+ *
+ * Lower it only to cap the RAM of that copy, for example on a device where a
+ * transient whole-sector allocation is a problem, or if the sector size is raised
+ * and the window would grow with it. A value which is not smaller than the sector
+ * size has no effect.
+ */
+#ifndef FDB_READ_CACHE_WINDOW
+#define FDB_READ_CACHE_WINDOW 0
+#endif
+#endif /* FDB_USING_READ_CACHE */
 /* MCU Endian Configuration, default is Little Endian Order. */
 /* #define FDB_BIG_ENDIAN */ 
 

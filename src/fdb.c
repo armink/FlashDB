@@ -42,6 +42,15 @@ fdb_err_t _fdb_init_ex(fdb_db_t db, const char *name, const char *path, fdb_db_t
     db->type = type;
     db->user_data = user_data;
 
+#if FDB_USING_READ_CACHE
+    /* the cache serves the loading phases only: it is allocated while a database
+     * loads and never again afterwards, see fdb_read_cache.c. fdb_kvdb_init()
+     * opens that phase */
+    db->read_cache = NULL;
+    db->read_cache_sec = FDB_FAILED_ADDR;
+    db->read_cache_load = false;
+#endif
+
     if (db->file_mode) {
 #ifdef FDB_USING_FILE_MODE
         memset(db->cur_file_sec, FDB_FAILED_ADDR, FDB_FILE_CACHE_TABLE_SIZE * sizeof(db->cur_file_sec[0]));
@@ -118,6 +127,11 @@ void _fdb_init_finish(fdb_db_t db, fdb_err_t result)
 void _fdb_deinit(fdb_db_t db)
 {
     FDB_ASSERT(db);
+
+    /* the read cache never outlives the database it belongs to */
+#if FDB_USING_READ_CACHE
+    _fdb_read_cache_release(db);
+#endif
 
     if (db->init_ok) {
 #ifdef FDB_USING_FILE_MODE

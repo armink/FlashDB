@@ -425,6 +425,14 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
     kv_sec_info_t sector_cache = get_sector_from_cache(db, addr);
     if (sector_cache && ((!traversal) || (traversal && sector_cache->empty_kv != FAILED_ADDR))) {
         memcpy(sector, sector_cache, sizeof(struct kvdb_sec_info));
+#if FDB_USING_READ_CACHE
+        /* the scan which follows reads this sector, let it be served from RAM */
+        if (!traversal &&
+            (sector->status.store == FDB_SECTOR_STORE_USING ||
+             sector->status.store == FDB_SECTOR_STORE_FULL)) {
+            _fdb_read_cache_begin((fdb_db_t)db, sector->addr);
+        }
+#endif
         return result;
     }
 #endif /* FDB_KV_USING_CACHE */
@@ -458,6 +466,11 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
         else if (sector->status.store == FDB_SECTOR_STORE_USING) {
             struct fdb_kv kv_obj;
 
+#if FDB_USING_READ_CACHE
+            /* the KV chain below is walked through the cache, the used area end is
+             * searched with _fdb_continue_ff_addr() right after it */
+            _fdb_read_cache_begin((fdb_db_t)db, sector->addr);
+#endif
             sector->remain = db_sec_size(db) - SECTOR_HDR_DATA_SIZE;
             kv_obj.addr.start = sector->addr + SECTOR_HDR_DATA_SIZE;
             do {
@@ -497,6 +510,10 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
                  * early instead of scanning the whole (mostly erased) sector.
                  * Search it once here, it costs a single full sector read while
                  * every later KV search of this process reuses it from cache. */
+#if FDB_USING_READ_CACHE
+                /* serve the search below from RAM, it reads the whole sector */
+                _fdb_read_cache_begin((fdb_db_t)db, sector->addr);
+#endif
                 sector->empty_kv = _fdb_continue_ff_addr((fdb_db_t)db,
                         sector->addr + SECTOR_HDR_DATA_SIZE, sector->addr + db_sec_size(db));
                 sector->remain = db_sec_size(db) - (sector->empty_kv - sector->addr);
@@ -1770,6 +1787,12 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
         goto __exit;
     }
 
+#if FDB_USING_READ_CACHE
+    /* the loading phase opens here: the initialization below may use the cache, and it
+     * is given back when the initialization ends (see fdb_kvdb_init's __exit) */
+    ((fdb_db_t)db)->read_cache_load = true;
+#endif
+
     /* lock the KVDB */
     db_lock(db);
 
@@ -1822,6 +1845,12 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
     db_unlock(db);
 
 __exit:
+#if FDB_USING_READ_CACHE
+    /* the initialization is over: give the window back, so it is never kept beyond
+     * the phase which borrowed it. The load which follows (the application reading
+     * the database into its own cache) takes its own window, see fdb_kv_iterate() */
+    _fdb_read_cache_release((fdb_db_t)db);
+#endif
 
     _fdb_init_finish((fdb_db_t)db, result);
 
@@ -1837,6 +1866,9 @@ __exit:
  */
 fdb_err_t fdb_kvdb_deinit(fdb_kvdb_t db)
 {
+#if FDB_USING_READ_CACHE
+    _fdb_read_cache_release((fdb_db_t) db);
+#endif
     _fdb_deinit((fdb_db_t) db);
 
     return FDB_NO_ERR;
@@ -1877,6 +1909,13 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
     struct kvdb_sec_info sector;
     fdb_kv_t kv = &(itr->curr_kv);
 
+#if FDB_USING_READ_CACHE
+    /* this application driven iteration loads the database into the caller's own
+     * cache, so it may use the window; it is given back below when the iteration ends
+     * and a single key operation never allocates it at run time */
+    ((fdb_db_t)db)->read_cache_load = true;
+#endif
+
     do {
         if (read_sector_info(db, itr->sector_addr, &sector, false) == FDB_NO_ERR) {
             if (sector.status.store == FDB_SECTOR_STORE_USING || sector.status.store == FDB_SECTOR_STORE_FULL) {
@@ -1907,6 +1946,11 @@ bool fdb_kv_iterate(fdb_kvdb_t db, fdb_kv_iterator_t itr)
         itr->traversed_len += db_sec_size(db);
     } while ((itr->sector_addr = get_next_sector_addr(db, &sector, itr->traversed_len)) != FAILED_ADDR);
     /* Finally we have iterated all the KVs. */
+#if FDB_USING_READ_CACHE
+    /* the application has loaded the database, so the loading phase is over: give the
+     * window back and never allocate it again */
+    _fdb_read_cache_release((fdb_db_t) db);
+#endif
     return false;
 }
 
