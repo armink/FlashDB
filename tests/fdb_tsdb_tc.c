@@ -498,6 +498,93 @@ static void test_fdb_github_issue_249(void)
     uassert_true(fdb_tsl_query_count(&test_tsdb, 0, INT32_MAX, FDB_TSL_WRITE) == 3);
 }
 
+struct issue_389_iter_args {
+    fdb_time_t next;
+    int step;
+};
+
+static bool issue_389_iter_cb(fdb_tsl_t tsl, void *arg)
+{
+    struct issue_389_iter_args *args = arg;
+
+    uassert_true(tsl->status == FDB_TSL_WRITE);
+    uassert_true(tsl->time == args->next);
+    args->next += args->step;
+    return false;
+}
+
+static void test_fdb_github_issue_389(void)
+{
+    struct fdb_tsdb db = { 0 };
+    struct fdb_blob blob;
+    uint8_t data[512] = { 0 };
+    uint32_t sec_size = TEST_SECTOR_SIZE, db_size = sec_size * 4, idx_size;
+    rt_bool_t file_mode = true;
+    fdb_time_t time = 0, middle;
+    struct issue_389_iter_args args;
+    int sector, reboot;
+
+    if (access("storage_tsdb_389", 0) < 0)
+    {
+        mkdir("storage_tsdb_389", 0);
+    }
+    fdb_tsdb_control(&db, FDB_TSDB_CTRL_SET_SEC_SIZE, &sec_size);
+    fdb_tsdb_control(&db, FDB_TSDB_CTRL_SET_FILE_MODE, &file_mode);
+    fdb_tsdb_control(&db, FDB_TSDB_CTRL_SET_MAX_SIZE, &db_size);
+    uassert_true(fdb_tsdb_init(&db, "issue_389", "storage_tsdb_389", get_time, sizeof(data), NULL) == FDB_NO_ERR);
+    fdb_tsl_clean(&db);
+
+    /* Measure the index stride instead of assuming a particular write granularity. */
+    uassert_true(fdb_tsl_append_with_ts(&db, fdb_blob_make(&blob, data, sizeof(int)), TEST_TIME_STEP) == FDB_NO_ERR);
+    idx_size = db.cur_sec.empty_idx - db.cur_sec.end_idx;
+    fdb_tsl_clean(&db);
+
+    for (sector = 0; sector < 3; sector++)
+    {
+        while (db.cur_sec.remain > idx_size + sizeof(data))
+        {
+            time += TEST_TIME_STEP;
+            uassert_true(fdb_tsl_append_with_ts(&db, fdb_blob_make(&blob, data, sizeof(int)), time) == FDB_NO_ERR);
+        }
+        /* Make the blob area meet the index area exactly, with no erased gap. */
+        time += TEST_TIME_STEP;
+        uassert_true(fdb_tsl_append_with_ts(&db, fdb_blob_make(&blob, data, db.cur_sec.remain - idx_size), time) == FDB_NO_ERR);
+        uassert_true(db.cur_sec.remain == 0);
+        time += TEST_TIME_STEP;
+        uassert_true(fdb_tsl_append_with_ts(&db, fdb_blob_make(&blob, data, sizeof(int)), time) == FDB_NO_ERR);
+        uassert_true(db.cur_sec.addr == (sector + 1) * sec_size);
+    }
+
+    for (reboot = 0; reboot < 2; reboot++)
+    {
+        args.next = TEST_TIME_STEP;
+        args.step = TEST_TIME_STEP;
+        fdb_tsl_iter_by_time(&db, 0, time + 1, issue_389_iter_cb, &args);
+        uassert_true(args.next == time + TEST_TIME_STEP);
+
+        args.step = -TEST_TIME_STEP;
+        args.next = time;
+        fdb_tsl_iter_by_time(&db, time + 1, 1, issue_389_iter_cb, &args);
+        uassert_true(args.next == 0);
+        args.next = time;
+        fdb_tsl_iter_by_time(&db, time, TEST_TIME_STEP, issue_389_iter_cb, &args);
+        uassert_true(args.next == 0);
+        args.next = time - TEST_TIME_STEP;
+        fdb_tsl_iter_by_time(&db, time - 1, TEST_TIME_STEP + 1, issue_389_iter_cb, &args);
+        uassert_true(args.next == TEST_TIME_STEP);
+        middle = (time / TEST_TIME_STEP / 2) * TEST_TIME_STEP;
+        args.next = middle;
+        fdb_tsl_iter_by_time(&db, middle + 1, 1, issue_389_iter_cb, &args);
+        uassert_true(args.next == 0);
+
+        uassert_true(fdb_tsdb_deinit(&db) == FDB_NO_ERR);
+        if (reboot == 0)
+        {
+            uassert_true(fdb_tsdb_init(&db, "issue_389", "storage_tsdb_389", get_time, sizeof(data), NULL) == FDB_NO_ERR);
+        }
+    }
+}
+
 static void testcase(void)
 {
     UTEST_UNIT_RUN(test_fdb_tsdb_init_ex);
@@ -512,6 +599,7 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_tsdb_deinit);
 
     UTEST_UNIT_RUN(test_fdb_github_issue_249);
+    UTEST_UNIT_RUN(test_fdb_github_issue_389);
 }
 
 UTEST_TC_EXPORT(testcase, "packages.system.flashdb.tsdb", utest_tc_init, utest_tc_cleanup, 60);

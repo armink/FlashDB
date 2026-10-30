@@ -667,11 +667,8 @@ static int search_start_tsl_addr(fdb_tsdb_t db, int start, int end, fdb_time_t f
 
         if (start > end) {
             if (from > to) {
-                tsl.addr.index = start;
-                read_tsl(db, &tsl);
-                if (tsl.time > from) {
-                    start -= LOG_IDX_DATA_SIZE;
-                }
+                /* The lower bound may point into blob data; use the preceding index. */
+                start = end;
             }
             break;
         }
