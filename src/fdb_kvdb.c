@@ -257,7 +257,12 @@ static bool get_kv_from_cache(fdb_kvdb_t db, const char *name, size_t name_len, 
         if ((db->kv_cache_table[i].addr != FDB_DATA_UNUSED) && (db->kv_cache_table[i].name_crc == name_crc)) {
             char saved_name[FDB_KV_NAME_MAX] = { 0 };
             /* read the KV name in flash */
-            _fdb_flash_read((fdb_db_t)db, db->kv_cache_table[i].addr + KV_HDR_DATA_SIZE, (uint32_t *) saved_name, FDB_KV_NAME_MAX);
+            if (_fdb_flash_read((fdb_db_t)db, db->kv_cache_table[i].addr + KV_HDR_DATA_SIZE,
+                    (uint32_t *) saved_name, FDB_KV_NAME_MAX) != FDB_NO_ERR) {
+                db->kv_cache_table[i].addr = FDB_DATA_UNUSED;
+                db->kv_cache_table[i].active = 0;
+                continue;
+            }
             if (!strncmp(name, saved_name, name_len)) {
                 *addr = db->kv_cache_table[i].addr;
                 if (db->kv_cache_table[i].active >= 0xFFFF - FDB_KV_CACHE_TABLE_SIZE) {
@@ -352,8 +357,19 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
     uint32_t calc_crc32 = 0, crc_data_len, kv_name_addr;
     fdb_err_t result = FDB_NO_ERR;
     size_t len, size;
+
+    /* Iterators must not reuse metadata from an earlier successful read. */
+    kv->crc_is_ok = false;
+    kv->status = FDB_KV_ERR_HDR;
+    kv->len = KV_HDR_DATA_SIZE;
+    kv->name_len = 0;
+    kv->value_len = 0;
+    kv->addr.value = FAILED_ADDR;
     /* read KV header raw data */
-    _fdb_flash_read((fdb_db_t)db, kv->addr.start, (uint32_t *)&kv_hdr, sizeof(struct kv_hdr_data));
+    if (_fdb_flash_read((fdb_db_t)db, kv->addr.start, (uint32_t *)&kv_hdr,
+            sizeof(struct kv_hdr_data)) != FDB_NO_ERR) {
+        return FDB_READ_ERR;
+    }
     kv->status = (fdb_kv_status_t) _fdb_get_status(kv_hdr.status_table, FDB_KV_STATUS_NUM);
     kv->len = kv_hdr.len;
 
@@ -383,7 +399,10 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
             size = crc_data_len - len;
         }
 
-        _fdb_flash_read((fdb_db_t)db, kv->addr.start + KV_HDR_DATA_SIZE + len, (uint32_t *) buf, FDB_WG_ALIGN(size));
+        if (_fdb_flash_read((fdb_db_t)db, kv->addr.start + KV_HDR_DATA_SIZE + len,
+                (uint32_t *) buf, FDB_WG_ALIGN(size)) != FDB_NO_ERR) {
+            return FDB_READ_ERR;
+        }
         calc_crc32 = fdb_calc_crc32(calc_crc32, buf, size);
     }
     /* check CRC32 */
@@ -393,13 +412,19 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
         result = FDB_READ_ERR;
         /* try read the KV name, maybe read name has error */
         kv_name_addr = kv->addr.start + KV_HDR_DATA_SIZE;
-        _fdb_flash_read((fdb_db_t)db, kv_name_addr, (uint32_t *)kv->name, FDB_WG_ALIGN(name_len));
+        if (name_len && _fdb_flash_read((fdb_db_t)db, kv_name_addr,
+                (uint32_t *)kv->name, FDB_WG_ALIGN(name_len)) != FDB_NO_ERR) {
+            return FDB_READ_ERR;
+        }
         FDB_INFO("Error: Read the KV (%.*s@0x%08" PRIX32 ") CRC32 check failed!\n", name_len, kv->name, kv->addr.start);
     } else {
-        kv->crc_is_ok = true;
         /* the name is behind aligned KV header */
         kv_name_addr = kv->addr.start + KV_HDR_DATA_SIZE;
-        _fdb_flash_read((fdb_db_t)db, kv_name_addr, (uint32_t *) kv->name, FDB_WG_ALIGN(kv_hdr.name_len));
+        if (kv_hdr.name_len && _fdb_flash_read((fdb_db_t)db, kv_name_addr, (uint32_t *) kv->name,
+                FDB_WG_ALIGN(kv_hdr.name_len)) != FDB_NO_ERR) {
+            return FDB_READ_ERR;
+        }
+        kv->crc_is_ok = true;
         /* the value is behind aligned name */
         kv->addr.value = kv_name_addr + FDB_WG_ALIGN(kv_hdr.name_len);
         kv->value_len = kv_hdr.value_len;
@@ -618,8 +643,11 @@ static bool find_kv(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
     size_t key_len = strlen(key);
 
     if (get_kv_from_cache(db, key, key_len, &kv->addr.start)) {
-        read_kv(db, kv);
-        return true;
+        if (read_kv(db, kv) == FDB_NO_ERR && find_kv_cb(kv, (void *)key, &find_ok)) {
+            return true;
+        }
+        /* A cached address is only a hint; retry through the validated scan. */
+        update_kv_cache(db, key, key_len, FDB_DATA_UNUSED);
     }
 #endif /* FDB_KV_USING_CACHE */
 
