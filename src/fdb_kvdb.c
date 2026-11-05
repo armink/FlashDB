@@ -1377,13 +1377,7 @@ fdb_err_t fdb_kv_set(fdb_kvdb_t db, const char *key, const char *value)
     }
 }
 
-/**
- * recovery all KV to default.
- *
- * @param db database object
- * @return result
- */
-fdb_err_t fdb_kv_set_default(fdb_kvdb_t db)
+static fdb_err_t _kv_set_default(fdb_kvdb_t db, bool format)
 {
     fdb_err_t result = FDB_NO_ERR;
     uint32_t addr, i, value_len;
@@ -1399,7 +1393,7 @@ fdb_err_t fdb_kv_set_default(fdb_kvdb_t db)
 #endif /* FDB_KV_USING_CACHE */
 
     /* format all sectors */
-    for (addr = 0; addr < db_max_size(db); addr += db_sec_size(db)) {
+    for (addr = 0; format && addr < db_max_size(db); addr += db_sec_size(db)) {
         result = format_sector(db, addr, SECTOR_NOT_COMBINED);
         if (result != FDB_NO_ERR) {
             goto __exit;
@@ -1427,6 +1421,17 @@ __exit:
     db_unlock(db);
 
     return result;
+}
+
+/**
+ * recovery all KV to default.
+ *
+ * @param db database object
+ * @return result
+ */
+fdb_err_t fdb_kv_set_default(fdb_kvdb_t db)
+{
+    return _kv_set_default(db, true);
 }
 
 static bool print_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
@@ -1643,33 +1648,8 @@ static fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
     /* all sector header check failed */
     if (check_failed_count == SECTOR_NUM) {
         FDB_INFO("All sector header is incorrect. Set it to default.\n");
-        uint32_t  i, value_len;
-        /* lock the KV cache */
-        db_lock(db);
-#ifdef FDB_KV_USING_CACHE
-        for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
-            db->kv_cache_table[i].addr = FDB_DATA_UNUSED;
-        }
-#endif /* FDB_KV_USING_CACHE */
-
-        /* create default KV */
-        for (i = 0; i < db->default_kvs.num; i++) {
-            /* It seems to be a string when value length is 0.
-            * This mechanism is for compatibility with older versions (less then V4.0). */
-            if (db->default_kvs.kvs[i].value_len == 0) {
-                value_len = strlen(db->default_kvs.kvs[i].value);
-            } else {
-                value_len = db->default_kvs.kvs[i].value_len;
-            }
-            sector.empty_kv = FAILED_ADDR;
-            result = create_kv_blob(db, &sector, db->default_kvs.kvs[i].key, db->default_kvs.kvs[i].value, value_len);
-            if (result != FDB_NO_ERR) {
-                break;
-            }
-        }
-        db_oldest_addr(db) = 0;
-        /* unlock the KV cache */
-        db_unlock(db);
+        /* all sectors were already formatted by check_sec_hdr_cb */
+        _kv_set_default(db, false);
     }
 
     /* check all sector header for recovery GC */
