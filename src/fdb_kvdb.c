@@ -1662,7 +1662,7 @@ static fdb_err_t _fdb_kv_load(fdb_kvdb_t db)
                 value_len = db->default_kvs.kvs[i].value_len;
             }
             sector.empty_kv = FAILED_ADDR;
-            create_kv_blob(db, &sector, db->default_kvs.kvs[i].key, db->default_kvs.kvs[i].value, value_len);
+            result = create_kv_blob(db, &sector, db->default_kvs.kvs[i].key, db->default_kvs.kvs[i].value, value_len);
             if (result != FDB_NO_ERR) {
                 break;
             }
