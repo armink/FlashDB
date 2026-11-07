@@ -77,7 +77,14 @@
 /* Sector header raw size (store_status + dirty_status + magic + combined + reserved) */
 #define _TKV_SEC_HDR_RAW_SZ       (FDB_STORE_STATUS_TABLE_SIZE + FDB_DIRTY_STATUS_TABLE_SIZE \
                                    + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t))
-#define _TKV_SEC_HDR_SZ           FDB_WG_ALIGN(_TKV_SEC_HDR_RAW_SZ)
+#if (FDB_WRITE_GRAN == 64) || (FDB_WRITE_GRAN == 128)
+#define _TKV_SEC_HDR_STRUCT_SZ     (_TKV_SEC_HDR_RAW_SZ + 4)
+#elif (FDB_WRITE_GRAN == 256)
+#define _TKV_SEC_HDR_STRUCT_SZ     (_TKV_SEC_HDR_RAW_SZ + 20)
+#else
+#define _TKV_SEC_HDR_STRUCT_SZ     FDB_ALIGN(_TKV_SEC_HDR_RAW_SZ, sizeof(uint32_t))
+#endif
+#define _TKV_SEC_HDR_SZ           FDB_WG_ALIGN(_TKV_SEC_HDR_STRUCT_SZ)
 
 /* KV header raw size (status + magic + len + crc32 + name_len + value_len) */
 #define _TKV_KV_HDR_RAW_SZ        (_TKV_KV_STATUS_SZ + sizeof(uint32_t) + sizeof(uint32_t) \
@@ -1006,6 +1013,367 @@ static size_t issue_59_cache_index(uint32_t addr)
     return FDB_KV_CACHE_TABLE_SIZE;
 }
 
+#ifdef FDB_UTEST_READ_FAULTS
+enum issue_59_read_fault_mode {
+    ISSUE_59_READ_OK,
+    ISSUE_59_CACHED_NAME_ERROR,
+    ISSUE_59_HEADER_ERROR,
+    ISSUE_59_CRC_DATA_ERROR,
+    ISSUE_59_RECORD_NAME_ERROR,
+    ISSUE_59_GC_HEADER_ERROR
+};
+
+static struct {
+    enum issue_59_read_fault_mode mode;
+    uint32_t start, name_addr;
+    uint32_t gc_addr;
+    size_t header_size, name_size, cache_index;
+    unsigned int hits, name_reads, header_skips;
+    bool capture_header, in_record, cache_was_evicted;
+} issue_59_read_fault;
+
+static fdb_err_t issue_59_read_fault_hook(fdb_db_t db, uint32_t addr, void *buf,
+        size_t size, fdb_err_t result)
+{
+    bool fail = false;
+
+    if (result != FDB_NO_ERR || db != (fdb_db_t)&test_kvdb)
+    {
+        return result;
+    }
+    if (issue_59_read_fault.capture_header && addr == issue_59_read_fault.start)
+    {
+        issue_59_read_fault.header_size = size;
+    }
+    if (issue_59_read_fault.mode == ISSUE_59_READ_OK)
+    {
+        return result;
+    }
+    if (issue_59_read_fault.mode == ISSUE_59_GC_HEADER_ERROR
+            && test_kvdb.gc_request
+            && addr == issue_59_read_fault.gc_addr + _TKV_SEC_HDR_SZ
+            && size == issue_59_read_fault.header_size
+            && issue_59_read_fault.hits == 0)
+    {
+        fail = true;
+    }
+    else if (addr == issue_59_read_fault.start && size == issue_59_read_fault.header_size)
+    {
+        if (issue_59_read_fault.header_skips)
+        {
+            issue_59_read_fault.header_skips--;
+            return result;
+        }
+        issue_59_read_fault.in_record = true;
+        issue_59_read_fault.name_reads = 0;
+        if (issue_59_read_fault.mode == ISSUE_59_CACHED_NAME_ERROR && issue_59_read_fault.hits)
+        {
+            issue_59_read_fault.cache_was_evicted =
+                    test_kvdb.kv_cache_table[issue_59_read_fault.cache_index].addr == FDB_DATA_UNUSED;
+        }
+        fail = issue_59_read_fault.mode == ISSUE_59_HEADER_ERROR;
+    }
+    else if (addr == issue_59_read_fault.name_addr)
+    {
+        if (issue_59_read_fault.mode == ISSUE_59_CACHED_NAME_ERROR
+                && !issue_59_read_fault.in_record && !issue_59_read_fault.hits
+                && size == FDB_KV_NAME_MAX)
+        {
+            fail = true;
+        }
+        else if (issue_59_read_fault.in_record)
+        {
+            if (issue_59_read_fault.mode == ISSUE_59_CRC_DATA_ERROR && size == FDB_WG_ALIGN(32))
+            {
+                fail = true;
+            }
+            if (issue_59_read_fault.mode == ISSUE_59_RECORD_NAME_ERROR
+                    && size == issue_59_read_fault.name_size)
+            {
+                /* A wide write unit makes the CRC and final name reads identical in size. */
+                unsigned int name_read = issue_59_read_fault.name_size == FDB_WG_ALIGN(32) ? 2 : 1;
+                issue_59_read_fault.name_reads++;
+                fail = issue_59_read_fault.name_reads == name_read;
+            }
+        }
+    }
+    if (fail)
+    {
+        /* Valid bytes must still be rejected when the read reports failure. */
+        issue_59_read_fault.hits++;
+        issue_59_read_fault.in_record = false;
+        return FDB_READ_ERR;
+    }
+    return result;
+}
+
+static bool issue_59_read_fault_target(const char *key, fdb_kv_t kv)
+{
+    memset(&issue_59_read_fault, 0, sizeof(issue_59_read_fault));
+    if (fdb_kv_get_obj(&test_kvdb, key, kv) == NULL)
+    {
+        uassert_true(false);
+        return false;
+    }
+    issue_59_read_fault.start = kv->addr.start;
+    issue_59_read_fault.name_addr = kv->addr.value - FDB_WG_ALIGN(kv->name_len);
+    issue_59_read_fault.name_size = FDB_WG_ALIGN(kv->name_len);
+    issue_59_read_fault.cache_index = issue_59_cache_index(kv->addr.start);
+    uassert_true(issue_59_read_fault.cache_index < FDB_KV_CACHE_TABLE_SIZE);
+    if (issue_59_read_fault.cache_index >= FDB_KV_CACHE_TABLE_SIZE)
+    {
+        return false;
+    }
+    /* Observe the real header read instead of duplicating its private C layout. */
+    issue_59_read_fault.capture_header = true;
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, kv));
+    issue_59_read_fault.capture_header = false;
+    uassert_true(issue_59_read_fault.header_size > 0);
+    return issue_59_read_fault.header_size > 0;
+}
+
+static bool issue_59_read_fault_prepare(const char *key, fdb_kv_t kv)
+{
+    struct fdb_blob blob;
+    uint8_t value[2 * _TKV_W + 33];
+
+    memset(&issue_59_read_fault, 0, sizeof(issue_59_read_fault));
+    _fdb_utest_read_fault_hook = issue_59_read_fault_hook;
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+    memset(value, 0x59, sizeof(value));
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+    return issue_59_read_fault_target(key, kv);
+}
+
+static void issue_59_read_fault_check(enum issue_59_read_fault_mode mode)
+{
+    const char *key = "io59";
+    struct fdb_kv kv;
+    struct fdb_blob blob;
+    uint8_t value[2 * _TKV_W + 33], expected[sizeof(value)];
+
+    if (!issue_59_read_fault_prepare(key, &kv))
+    {
+        return;
+    }
+    issue_59_read_fault.mode = mode;
+    if (mode == ISSUE_59_CACHED_NAME_ERROR)
+    {
+        /* A failed cache hint may recover through a successful full scan. */
+        uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+        uassert_true(issue_59_read_fault.cache_was_evicted);
+    }
+    else
+    {
+        uassert_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    }
+    issue_59_read_fault.mode = ISSUE_59_READ_OK;
+    uassert_true(issue_59_read_fault.hits > 0);
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    memset(expected, 0x59, sizeof(expected));
+    memset(value, 0, sizeof(value));
+    uassert_int_equal(fdb_kv_get_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, value, sizeof(value))), sizeof(value));
+    uassert_buf_equal(value, expected, sizeof(value));
+    _fdb_utest_read_fault_hook = NULL;
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_cached_name_read_error(void)
+{
+    issue_59_read_fault_check(ISSUE_59_CACHED_NAME_ERROR);
+}
+
+static void test_fdb_github_issue_59_header_read_error(void)
+{
+    issue_59_read_fault_check(ISSUE_59_HEADER_ERROR);
+}
+
+static void test_fdb_github_issue_59_crc_data_read_error(void)
+{
+    issue_59_read_fault_check(ISSUE_59_CRC_DATA_ERROR);
+}
+
+static void test_fdb_github_issue_59_record_name_read_error(void)
+{
+    issue_59_read_fault_check(ISSUE_59_RECORD_NAME_ERROR);
+}
+
+static void test_fdb_github_issue_59_max_key_read_error(void)
+{
+    char key[FDB_KV_NAME_MAX + 1];
+    struct fdb_kv kv;
+    struct fdb_blob blob;
+    uint8_t value[_TKV_W + 1], read_value[sizeof(value)];
+
+    memset(key, 'm', FDB_KV_NAME_MAX);
+    key[FDB_KV_NAME_MAX] = '\0';
+    memset(value, 0x5A, sizeof(value));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+    if (!issue_59_read_fault_target(key, &kv))
+    {
+        return;
+    }
+
+    issue_59_read_fault.mode = ISSUE_59_CACHED_NAME_ERROR;
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    uassert_true(issue_59_read_fault.hits > 0);
+    uassert_true(issue_59_read_fault.cache_was_evicted);
+    issue_59_read_fault.mode = ISSUE_59_READ_OK;
+    _fdb_utest_read_fault_hook = NULL;
+
+    memset(read_value, 0, sizeof(read_value));
+    uassert_int_equal(fdb_kv_get_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, read_value, sizeof(read_value))), sizeof(value));
+    uassert_buf_equal(read_value, value, sizeof(value));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_iterator_read_error(void)
+{
+    struct fdb_kv first, second;
+    struct fdb_kv_iterator itr;
+    struct fdb_blob blob;
+    uint8_t value[_TKV_W + 1];
+    size_t count = 0;
+
+    if (!issue_59_read_fault_prepare("it59a", &first))
+    {
+        return;
+    }
+    memset(value, 0xA5, sizeof(value));
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, "it59b",
+            fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+    if (!issue_59_read_fault_target("it59b", &second))
+    {
+        return;
+    }
+    fdb_kv_iterator_init(&test_kvdb, &itr);
+    uassert_true(fdb_kv_iterate(&test_kvdb, &itr));
+    uassert_int_equal(itr.curr_kv.addr.start, first.addr.start);
+    issue_59_read_fault.mode = ISSUE_59_HEADER_ERROR;
+    /* get_next_kv_addr first probes the next magic word with a 32-byte read. */
+    issue_59_read_fault.header_skips = issue_59_read_fault.header_size == 32 ? 1 : 0;
+    uassert_true(!fdb_kv_iterate(&test_kvdb, &itr));
+    issue_59_read_fault.mode = ISSUE_59_READ_OK;
+    uassert_true(issue_59_read_fault.hits > 0);
+    uassert_true(!itr.curr_kv.crc_is_ok);
+    uassert_int_equal(itr.curr_kv.status, FDB_KV_ERR_HDR);
+    uassert_int_equal(itr.curr_kv.name_len, 0);
+    uassert_int_equal(itr.curr_kv.value_len, 0);
+    uassert_int_equal(itr.curr_kv.addr.value, FDB_DATA_UNUSED);
+    uassert_int_equal(itr.iterated_cnt, 1);
+    uassert_int_equal(itr.iterated_obj_bytes, first.len);
+    uassert_int_equal(itr.iterated_value_bytes, first.value_len);
+
+    _fdb_utest_read_fault_hook = NULL;
+    fdb_kv_iterator_init(&test_kvdb, &itr);
+    while (fdb_kv_iterate(&test_kvdb, &itr))
+    {
+        count++;
+    }
+    uassert_int_equal(count, 2);
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_gc_read_error(void)
+{
+    const char *key = "gc59_read";
+    struct fdb_kv kv;
+    struct fdb_blob blob;
+    uint8_t value[TEST_KV_VALUE_LEN], expected[sizeof(value)], read_value[sizeof(value)];
+    size_t i, count = 2 * test_kvdb.parent.max_size / sizeof(value);
+    bool injected = false, have_expected = false;
+
+    memset(value, 0xA6, sizeof(value));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+    memcpy(expected, value, sizeof(expected));
+    have_expected = true;
+    _fdb_utest_read_fault_hook = issue_59_read_fault_hook;
+    if (!issue_59_read_fault_target(key, &kv))
+    {
+        return;
+    }
+    issue_59_read_fault.mode = ISSUE_59_GC_HEADER_ERROR;
+    for (i = 1; i < count && !injected; i++)
+    {
+        value[0] = (uint8_t)i;
+        issue_59_read_fault.gc_addr = test_kvdb.parent.oldest_addr;
+        issue_59_read_fault.hits = 0;
+        if (fdb_kv_set_blob(&test_kvdb, key,
+                fdb_blob_make(&blob, value, sizeof(value))) == FDB_NO_ERR)
+        {
+            memcpy(expected, value, sizeof(expected));
+            have_expected = true;
+        }
+        injected = issue_59_read_fault.hits != 0;
+    }
+    issue_59_read_fault.mode = ISSUE_59_READ_OK;
+    _fdb_utest_read_fault_hook = NULL;
+    uassert_true(injected);
+    uassert_true(have_expected);
+    if (!injected || !have_expected)
+    {
+        return;
+    }
+
+    /* A failed GC must leave the source value readable before recovery. */
+    memset(read_value, 0, sizeof(read_value));
+    uassert_int_equal(fdb_kv_get_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, read_value, sizeof(read_value))), sizeof(read_value));
+    uassert_buf_equal(read_value, expected, sizeof(expected));
+
+    /* The dirty-GC marker must allow the next initialization to resume safely. */
+    fdb_reboot();
+    memset(read_value, 0, sizeof(read_value));
+    uassert_int_equal(fdb_kv_get_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, read_value, sizeof(read_value))), sizeof(read_value));
+    uassert_buf_equal(read_value, expected, sizeof(expected));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+#endif /* FDB_UTEST_READ_FAULTS */
+
+static void test_fdb_github_issue_59_max_key(void)
+{
+    char key[FDB_KV_NAME_MAX + 1];
+    uint8_t value[_TKV_W + 1], read_value[sizeof(value)];
+    struct fdb_blob blob;
+    struct fdb_kv kv;
+    size_t key_len, i;
+
+    memset(value, 0x59, sizeof(value));
+    for (key_len = FDB_KV_NAME_MAX - 1; key_len <= FDB_KV_NAME_MAX; key_len++)
+    {
+        memset(key, 'k', key_len);
+        key[key_len] = '\0';
+        uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+                fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+
+        /* The full on-media name is valid even when kv.name is NUL-truncated. */
+        for (i = 0; i < 2; i++)
+        {
+            memset(&kv, 0, sizeof(kv));
+            uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+            uassert_true(kv.crc_is_ok);
+            uassert_int_equal(kv.status, FDB_KV_WRITE);
+            uassert_int_equal(kv.name_len, key_len);
+            uassert_int_equal(kv.value_len, sizeof(value));
+            uassert_true(issue_59_cache_index(kv.addr.start) < FDB_KV_CACHE_TABLE_SIZE);
+            memset(read_value, 0, sizeof(read_value));
+            uassert_int_equal(fdb_kv_get_blob(&test_kvdb, key,
+                    fdb_blob_make(&blob, read_value, sizeof(read_value))), sizeof(value));
+            uassert_buf_equal(read_value, value, sizeof(value));
+        }
+        uassert_int_equal(fdb_kv_del(&test_kvdb, key), FDB_NO_ERR);
+    }
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
 static void test_fdb_github_issue_59_crc(void)
 {
     const char *key = "issue59_crc";
@@ -1142,6 +1510,16 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_scale_up);
     UTEST_UNIT_RUN(test_fdb_kvdb_set_default);
 #ifdef FDB_KV_USING_CACHE
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_max_key);
+#ifdef FDB_UTEST_READ_FAULTS
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_cached_name_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_header_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_crc_data_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_record_name_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_max_key_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_iterator_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_gc_read_error);
+#endif
     UTEST_UNIT_RUN(test_fdb_github_issue_59_crc);
     UTEST_UNIT_RUN(test_fdb_github_issue_59_stale_cache);
     UTEST_UNIT_RUN(test_fdb_github_issue_59_gc);

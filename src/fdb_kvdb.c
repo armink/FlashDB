@@ -256,6 +256,9 @@ static bool get_kv_from_cache(fdb_kvdb_t db, const char *name, size_t name_len, 
     for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
         if ((db->kv_cache_table[i].addr != FDB_DATA_UNUSED) && (db->kv_cache_table[i].name_crc == name_crc)) {
             char saved_name[FDB_KV_NAME_MAX] = { 0 };
+            if (name_len > sizeof(saved_name)) {
+                continue;
+            }
             /* read the KV name in flash */
             if (_fdb_flash_read((fdb_db_t)db, db->kv_cache_table[i].addr + KV_HDR_DATA_SIZE,
                     (uint32_t *) saved_name, FDB_KV_NAME_MAX) != FDB_NO_ERR) {
@@ -263,7 +266,7 @@ static bool get_kv_from_cache(fdb_kvdb_t db, const char *name, size_t name_len, 
                 db->kv_cache_table[i].active = 0;
                 continue;
             }
-            if (!strncmp(name, saved_name, name_len)) {
+            if (memcmp(name, saved_name, name_len) == 0) {
                 *addr = db->kv_cache_table[i].addr;
                 if (db->kv_cache_table[i].active >= 0xFFFF - FDB_KV_CACHE_TABLE_SIZE) {
                     db->kv_cache_table[i].active = 0xFFFF;
@@ -420,8 +423,9 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
     } else {
         /* the name is behind aligned KV header */
         kv_name_addr = kv->addr.start + KV_HDR_DATA_SIZE;
-        if (kv_hdr.name_len && _fdb_flash_read((fdb_db_t)db, kv_name_addr, (uint32_t *) kv->name,
-                FDB_WG_ALIGN(kv_hdr.name_len)) != FDB_NO_ERR) {
+        size = kv_hdr.name_len < sizeof(kv->name) ? kv_hdr.name_len : sizeof(kv->name);
+        if (size && _fdb_flash_read((fdb_db_t)db, kv_name_addr, (uint32_t *) kv->name,
+                FDB_WG_ALIGN(size)) != FDB_NO_ERR) {
             return FDB_READ_ERR;
         }
         kv->crc_is_ok = true;
@@ -429,10 +433,9 @@ static fdb_err_t read_kv(fdb_kvdb_t db, fdb_kv_t kv)
         kv->addr.value = kv_name_addr + FDB_WG_ALIGN(kv_hdr.name_len);
         kv->value_len = kv_hdr.value_len;
         kv->name_len = kv_hdr.name_len;
-        if (kv_hdr.name_len >= sizeof(kv->name) / sizeof(kv->name[0])) {
-            kv_hdr.name_len = sizeof(kv->name) / sizeof(kv->name[0]) - 1;
+        if (kv_hdr.name_len < sizeof(kv->name)) {
+            kv->name[kv_hdr.name_len] = '\0';
         }
-        kv->name[kv_hdr.name_len] = '\0';
     }
 
     return result;
@@ -615,11 +618,12 @@ static bool find_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
     bool *find_ok = arg2;
     size_t key_len = strlen(key);
 
-    if (key_len != kv->name_len) {
+    if (key_len > sizeof(kv->name) || key_len != kv->name_len) {
         return false;
     }
     /* check KV */
-    if (kv->crc_is_ok && kv->status == FDB_KV_WRITE && !strncmp(kv->name, key, key_len)) {
+    if (kv->crc_is_ok && kv->status == FDB_KV_WRITE
+            && memcmp(kv->name, key, key_len) == 0) {
         *find_ok = true;
         return true;
     }
@@ -643,7 +647,9 @@ static bool find_kv(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
     size_t key_len = strlen(key);
 
     if (get_kv_from_cache(db, key, key_len, &kv->addr.start)) {
-        if (read_kv(db, kv) == FDB_NO_ERR && find_kv_cb(kv, (void *)key, &find_ok)) {
+        /* The cache lookup compared the full on-media name before kv->name was truncated. */
+        if (read_kv(db, kv) == FDB_NO_ERR && kv->crc_is_ok
+                && kv->status == FDB_KV_WRITE && kv->name_len == key_len) {
             return true;
         }
         /* A cached address is only a hint; retry through the validated scan. */
@@ -1181,7 +1187,12 @@ static bool do_gc(kv_sec_info_t sector, void *arg1, void *arg2)
         /* search all KV */
         kv.addr.start = sector->addr + SECTOR_HDR_DATA_SIZE;
         do {
-            read_kv(db, &kv);
+            if (read_kv(db, &kv) == FDB_READ_ERR) {
+                /* Keep the source sector intact after a failed KV read. The sector is
+                 * already marked as GC and will be retried during the next load. */
+                FDB_INFO("Error: Read KV during GC failed, stop GC.\n");
+                return true;
+            }
             if (kv.crc_is_ok && (kv.status == FDB_KV_WRITE || kv.status == FDB_KV_PRE_DELETE)) {
                 /* move the KV to new space */
                 if (move_kv(db, &kv) != FDB_NO_ERR) {

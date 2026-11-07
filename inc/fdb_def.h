@@ -56,6 +56,11 @@ extern "C" {
 #define FDB_WRITE_GRAN 1
 #endif
 
+/* The RT-Thread utest build enables the read-failure regression hook by default. */
+#if defined(RT_USING_UTEST) && !defined(FDB_UTEST_READ_FAULTS)
+#define FDB_UTEST_READ_FAULTS
+#endif
+
 /* log function. default FDB_PRINT macro is printf() */
 #ifndef FDB_PRINT
 #define FDB_PRINT(...)                 printf(__VA_ARGS__)
