@@ -63,6 +63,11 @@ const char *_fdb_db_path(fdb_db_t db);
 fdb_err_t _fdb_write_status(fdb_db_t db, uint32_t addr, uint8_t status_table[], size_t status_num, size_t status_index, bool sync);
 size_t _fdb_read_status(fdb_db_t db, uint32_t addr, uint8_t status_table[], size_t total_num);
 fdb_err_t _fdb_flash_read(fdb_db_t db, uint32_t addr, void *buf, size_t size);
+#ifdef FDB_UTEST_READ_FAULTS
+typedef fdb_err_t (*fdb_utest_read_fault_hook_t)(fdb_db_t db, uint32_t addr,
+        void *buf, size_t size, fdb_err_t result);
+extern fdb_utest_read_fault_hook_t _fdb_utest_read_fault_hook;
+#endif
 fdb_err_t _fdb_flash_erase(fdb_db_t db, uint32_t addr, size_t size);
 fdb_err_t _fdb_flash_write(fdb_db_t db, uint32_t addr, const void *buf, size_t size, bool sync);
 

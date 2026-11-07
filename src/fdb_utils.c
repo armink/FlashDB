@@ -18,6 +18,10 @@
 
 #define FDB_LOG_TAG "[utils]"
 
+#ifdef FDB_UTEST_READ_FAULTS
+fdb_utest_read_fault_hook_t _fdb_utest_read_fault_hook;
+#endif
+
 static const uint32_t crc32_table[] =
 {
     0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
@@ -260,25 +264,29 @@ fdb_err_t _fdb_flash_read(fdb_db_t db, uint32_t addr, void *buf, size_t size)
 
     /* the read cache is above the storage layer, so it covers every backend */
 #if FDB_USING_READ_CACHE
-    if (_fdb_read_cache_read(db, addr, buf, size)) {
-        return FDB_NO_ERR;
-    }
+    if (!_fdb_read_cache_read(db, addr, buf, size))
 #endif
-
-    if (db->file_mode) {
+    {
+        if (db->file_mode) {
 #ifdef FDB_USING_FILE_MODE
-        return _fdb_file_read(db, addr, buf, size);
+            result = _fdb_file_read(db, addr, buf, size);
 #else
-        return FDB_READ_ERR;
-#endif
-    } else {
-#ifdef FDB_USING_FAL_MODE
-        if (fal_partition_read(db->storage.part, addr, (uint8_t *) buf, size) < 0) {
             result = FDB_READ_ERR;
-        }
 #endif
+        } else {
+#ifdef FDB_USING_FAL_MODE
+            if (fal_partition_read(db->storage.part, addr, (uint8_t *) buf, size) < 0) {
+                result = FDB_READ_ERR;
+            }
+#endif
+        }
     }
 
+#ifdef FDB_UTEST_READ_FAULTS
+    if (_fdb_utest_read_fault_hook != NULL) {
+        return _fdb_utest_read_fault_hook(db, addr, buf, size, result);
+    }
+#endif
     return result;
 }
 
