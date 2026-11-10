@@ -1648,7 +1648,11 @@ static bool check_and_recovery_kv_cb(fdb_kv_t kv, void *arg1, void *arg2)
         /* the KV has not write finish, change the status to error */
         //TODO Draw the state replacement diagram of exception handling
         _fdb_write_status((fdb_db_t)db, kv->addr.start, status_table, FDB_KV_STATUS_NUM, FDB_KV_ERR_HDR, true);
-        return true;
+        /*
+         * Returning true stops the entire KV scan, not just this record.
+         * A valid PRE_DELETE old copy may appear later in traversal order.
+         * Continue scanning: without a GC request, recovery may not retry.
+         */
     } else if (kv->crc_is_ok && kv->status == FDB_KV_WRITE) {
 #ifdef FDB_KV_USING_CACHE
         /* update the cache when first load. If caching is disabled, this step is not performed */
