@@ -17,6 +17,8 @@
 #include <fdb_low_lvl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
+#include <fcntl.h>
 #include <inttypes.h>
 
 #define RT_USING_UTEST
@@ -29,6 +31,7 @@
 #endif
 
 #define TEST_TS_PART_NAME             "fdb_kvdb1"
+#define TEST_KVDB_NAME                "test_kv"
 #define TEST_KV_BLOB_NAME             "kv_blob_test"
 #define TEST_KV_NAME                  "kv_test"
 
@@ -200,7 +203,7 @@ static void test_fdb_kvdb_init_by_sector_num(size_t sector_num)
     fdb_kvdb_control(&(test_kvdb), FDB_KVDB_CTRL_SET_FILE_MODE, &file_mode);
     fdb_kvdb_control(&(test_kvdb), FDB_KVDB_CTRL_SET_MAX_SIZE, &db_size);
 
-    uassert_true(fdb_kvdb_init(&test_kvdb, "test_kv", TEST_TS_PART_NAME, NULL, NULL) == FDB_NO_ERR);
+    uassert_true(fdb_kvdb_init(&test_kvdb, TEST_KVDB_NAME, TEST_TS_PART_NAME, NULL, NULL) == FDB_NO_ERR);
 }
 
 static void test_fdb_kvdb_init(void)
@@ -993,6 +996,428 @@ static void test_fdb_read_cache(void)
 #endif /* FDB_USING_READ_CACHE */
 
 
+#ifdef FDB_KV_USING_CACHE
+static size_t issue_59_cache_index(fdb_kvdb_t db, uint32_t addr)
+{
+    size_t i;
+
+    for (i = 0; i < FDB_KV_CACHE_TABLE_SIZE; i++) {
+        if (db->kv_cache_table[i].addr == addr) {
+            return i;
+        }
+    }
+    return FDB_KV_CACHE_TABLE_SIZE;
+}
+
+/*
+ * Mirror of the private struct kv_hdr_data in src/fdb_kvdb.c. A case damages a
+ * stored header, so these offsets must follow that definition (including the
+ * compiler padding and the per-granularity padding array) just like the _TKV_*
+ * macros above.
+ */
+struct issue_59_kv_hdr
+{
+    uint8_t status_table[FDB_STATUS_TABLE_SIZE(FDB_KV_STATUS_NUM)];
+    uint32_t magic;
+    uint32_t len;
+    uint32_t crc32;
+    uint8_t name_len;
+    uint32_t value_len;
+#if (FDB_WRITE_GRAN == 64)
+    uint8_t padding[4];
+#elif (FDB_WRITE_GRAN == 128)
+    uint8_t padding[12];
+#elif (FDB_WRITE_GRAN == 256)
+    uint8_t padding[15];
+#endif
+};
+
+/* Patch one header field of the persisted record and keep the other bytes. */
+static void issue_59_patch_kv(fdb_kv_t kv, size_t field_offset, uint32_t value)
+{
+    size_t unit = FDB_WG_ALIGN(sizeof(uint32_t));
+    uint32_t addr = kv->addr.start + (uint32_t)field_offset;
+    uint32_t base = FDB_ALIGN_DOWN(addr, unit);
+    uint8_t buf[32];
+
+    uassert_true(unit <= sizeof(buf));
+    uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb, base, buf, unit), FDB_NO_ERR);
+    memcpy(&buf[addr - base], &value, sizeof(value));
+    uassert_int_equal(_fdb_flash_write((fdb_db_t)&test_kvdb, base, buf, unit, true), FDB_NO_ERR);
+}
+
+/*
+ * Shrink the file which holds the sector of the record. The file backend reports
+ * a short read for the first access at or past the new end, so _fdb_flash_read()
+ * returns FDB_READ_ERR there and the record cannot be read any more.
+ */
+static void issue_59_truncate(fdb_kv_t kv, uint32_t sector_offset)
+{
+    char path[64];
+    uint32_t sec_addr = FDB_ALIGN_DOWN(kv->addr.start, TEST_KVDB_SECTOR_SIZE);
+    int fd;
+
+    snprintf(path, sizeof(path), "%s/%s.fdb.%u", TEST_TS_PART_NAME, TEST_KVDB_NAME,
+            (unsigned int)(sec_addr / TEST_KVDB_SECTOR_SIZE));
+    fd = open(path, O_RDWR);
+    uassert_true(fd >= 0);
+    if (fd < 0) {
+        return;
+    }
+    uassert_int_equal(ftruncate(fd, (off_t)sector_offset), 0);
+    close(fd);
+}
+
+/* Format the database and store one small blob, then return its cache index. */
+static size_t issue_59_prepare(const char *key, const void *value, size_t value_len, fdb_kv_t kv)
+{
+    struct fdb_blob blob;
+    size_t index;
+
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, value, value_len)), FDB_NO_ERR);
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, kv));
+    index = issue_59_cache_index(&test_kvdb, kv->addr.start);
+    uassert_true(index < FDB_KV_CACHE_TABLE_SIZE);
+
+    return index;
+}
+
+static void test_fdb_github_issue_59_max_key(void)
+{
+    char key[FDB_KV_NAME_MAX + 1];
+    struct fdb_blob blob;
+    struct fdb_kv kv;
+    uint8_t value[_TKV_W + 1], read_value[sizeof(value)];
+    size_t i;
+
+    memset(key, 'm', FDB_KV_NAME_MAX);
+    key[FDB_KV_NAME_MAX] = '\0';
+    memset(value, 0x5A, sizeof(value));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+
+    /* The cached lookup must accept a maximum-length key even though read_kv()
+     * NUL-truncates kv->name for it. */
+    for (i = 0; i < 2; i++) {
+        memset(&kv, 0, sizeof(kv));
+        uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+        uassert_true(kv.crc_is_ok);
+        uassert_int_equal(kv.status, FDB_KV_WRITE);
+        uassert_int_equal(kv.name_len, FDB_KV_NAME_MAX);
+        uassert_int_equal(kv.value_len, sizeof(value));
+        memset(read_value, 0, sizeof(read_value));
+        uassert_int_equal(fdb_kv_get_blob(&test_kvdb, key,
+                fdb_blob_make(&blob, read_value, sizeof(read_value))), sizeof(value));
+        uassert_buf_equal(read_value, value, sizeof(value));
+    }
+    uassert_int_equal(fdb_kv_del(&test_kvdb, key), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_cached_name_read_error(void)
+{
+    const char *key = "issue59_name";
+    struct fdb_kv kv;
+    uint8_t value[_TKV_W + 1];
+    size_t index;
+
+    uassert_true(test_kvdb.parent.file_mode);
+    if (!test_kvdb.parent.file_mode) {
+        return;
+    }
+    memset(value, 0x59, sizeof(value));
+    index = issue_59_prepare(key, value, sizeof(value), &kv);
+
+    /* The name behind the cached address cannot be read: the hint must be
+     * dropped instead of returning the record. */
+    issue_59_truncate(&kv, kv.addr.start % TEST_KVDB_SECTOR_SIZE + 1);
+    uassert_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    uassert_int_equal(test_kvdb.kv_cache_table[index].addr, FDB_DATA_UNUSED);
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_header_read_error(void)
+{
+    const char *key = "issue59_hdr";
+    struct fdb_kv kv;
+    uint8_t value[_TKV_W + 1];
+    size_t index;
+
+    uassert_true(test_kvdb.parent.file_mode);
+    if (!test_kvdb.parent.file_mode) {
+        return;
+    }
+    memset(value, 0x59, sizeof(value));
+    index = issue_59_prepare(key, value, sizeof(value), &kv);
+
+    /* Drop the cache hint, otherwise its name read fails before the header. */
+    test_kvdb.kv_cache_table[index].addr = FDB_DATA_UNUSED;
+    issue_59_truncate(&kv, kv.addr.start % TEST_KVDB_SECTOR_SIZE);
+    uassert_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_crc_data_read_error(void)
+{
+    const char *key = "issue59_crcrd";
+    struct fdb_blob blob;
+    struct fdb_kv kv;
+    uint8_t value[FDB_KV_NAME_MAX + _TKV_W + 1], read_value[sizeof(value)];
+    uint32_t name_addr, sector_offset;
+    size_t index;
+
+    uassert_true(test_kvdb.parent.file_mode);
+    if (!test_kvdb.parent.file_mode) {
+        return;
+    }
+    memset(value, 0x59, sizeof(value));
+    index = issue_59_prepare(key, value, sizeof(value), &kv);
+
+    /* Keep the cached name readable and cut the value: the record read must
+     * report the failed read instead of returning the damaged record. */
+    name_addr = kv.addr.value - FDB_WG_ALIGN(kv.name_len);
+    sector_offset = name_addr % TEST_KVDB_SECTOR_SIZE + FDB_KV_NAME_MAX + 1;
+    issue_59_truncate(&kv, sector_offset);
+    uassert_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    uassert_int_equal(test_kvdb.kv_cache_table[index].addr, FDB_DATA_UNUSED);
+    uassert_int_equal(fdb_kv_get_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, read_value, sizeof(read_value))), 0);
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_record_name_read_error(void)
+{
+    char key[41];
+    struct fdb_kv kv;
+    uint8_t value[_TKV_W + 1], name_crc_data[sizeof(uint32_t)], data[32];
+    uint32_t value_len, crc = 0, data_len = FDB_WG_ALIGN(1);
+    uint32_t name_addr, new_len, sector_offset;
+    size_t index;
+
+    uassert_true(test_kvdb.parent.file_mode);
+    if (!test_kvdb.parent.file_mode) {
+        return;
+    }
+    memset(key, 'n', sizeof(key) - 1);
+    key[sizeof(key) - 1] = '\0';
+    memset(value, 0x5A, sizeof(value));
+    index = issue_59_prepare(key, value, sizeof(value), &kv);
+    if (FDB_WG_ALIGN(kv.name_len) <= data_len + 8) {
+        uassert_true(false);
+        return;
+    }
+
+    /* Forge a header whose CRC still matches but whose length ends before the
+     * name, so the name read below starts past the truncated record. */
+    name_addr = kv.addr.value - FDB_WG_ALIGN(kv.name_len);
+    new_len = (uint32_t)FDB_WG_ALIGN(sizeof(struct issue_59_kv_hdr)) + data_len;
+    uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb,
+            kv.addr.start + (uint32_t)offsetof(struct issue_59_kv_hdr, name_len),
+            name_crc_data, sizeof(name_crc_data)), FDB_NO_ERR);
+    uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb,
+            kv.addr.start + (uint32_t)offsetof(struct issue_59_kv_hdr, value_len),
+            &value_len, sizeof(value_len)), FDB_NO_ERR);
+    uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb, name_addr, data, data_len), FDB_NO_ERR);
+    crc = fdb_calc_crc32(crc, name_crc_data, sizeof(name_crc_data));
+    crc = fdb_calc_crc32(crc, &value_len, sizeof(value_len));
+    crc = fdb_calc_crc32(crc, data, data_len);
+    issue_59_patch_kv(&kv, offsetof(struct issue_59_kv_hdr, len), new_len);
+    issue_59_patch_kv(&kv, offsetof(struct issue_59_kv_hdr, crc32), crc);
+
+    /* The crafted record is self-consistent: the scan finds it before the cut. */
+    test_kvdb.kv_cache_table[index].addr = FDB_DATA_UNUSED;
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    index = issue_59_cache_index(&test_kvdb, kv.addr.start);
+    if (index < FDB_KV_CACHE_TABLE_SIZE) {
+        test_kvdb.kv_cache_table[index].addr = FDB_DATA_UNUSED;
+    }
+
+    /* Cut the name in half: the CRC read still succeeds, the name read fails. */
+    sector_offset = name_addr % TEST_KVDB_SECTOR_SIZE + data_len + 8;
+    issue_59_truncate(&kv, sector_offset);
+    uassert_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_crc_name_read_error(void)
+{
+    char key[41];
+    struct fdb_kv kv;
+    uint8_t value[_TKV_W + 1];
+    uint32_t data_len = FDB_WG_ALIGN(1), name_addr, new_len, sector_offset;
+    size_t index;
+
+    uassert_true(test_kvdb.parent.file_mode);
+    if (!test_kvdb.parent.file_mode) {
+        return;
+    }
+    memset(key, 'c', sizeof(key) - 1);
+    key[sizeof(key) - 1] = '\0';
+    memset(value, 0x11, sizeof(value));
+    index = issue_59_prepare(key, value, sizeof(value), &kv);
+    if (FDB_WG_ALIGN(kv.name_len) <= data_len + 8) {
+        uassert_true(false);
+        return;
+    }
+
+    /* Keep the stored CRC (it covers the whole record), so the shortened length
+     * makes the CRC check fail and then the name read of that branch fails too. */
+    name_addr = kv.addr.value - FDB_WG_ALIGN(kv.name_len);
+    new_len = (uint32_t)FDB_WG_ALIGN(sizeof(struct issue_59_kv_hdr)) + data_len;
+    issue_59_patch_kv(&kv, offsetof(struct issue_59_kv_hdr, len), new_len);
+
+    test_kvdb.kv_cache_table[index].addr = FDB_DATA_UNUSED;
+    sector_offset = name_addr % TEST_KVDB_SECTOR_SIZE + data_len + 8;
+    issue_59_truncate(&kv, sector_offset);
+    uassert_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_iterator_read_error(void)
+{
+    struct fdb_kv first, second;
+    struct fdb_kv_iterator itr;
+    struct fdb_blob blob;
+    uint8_t value[_TKV_W + 1], damaged[FDB_WG_ALIGN(1)];
+
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+    memset(value, 0x11, sizeof(value));
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, "it59a",
+            fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, "it59a", &first));
+    memset(value, 0x22, sizeof(value));
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, "it59b",
+            fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, "it59b", &second));
+
+    /* Damage only the value of the second record, its KV magic stays readable. */
+    uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb, second.addr.value,
+            damaged, sizeof(damaged)), FDB_NO_ERR);
+    damaged[0] ^= 1;
+    uassert_int_equal(_fdb_flash_write((fdb_db_t)&test_kvdb, second.addr.value,
+            damaged, sizeof(damaged), true), FDB_NO_ERR);
+
+    fdb_kv_iterator_init(&test_kvdb, &itr);
+    uassert_true(fdb_kv_iterate(&test_kvdb, &itr));
+    uassert_int_equal(itr.curr_kv.addr.start, first.addr.start);
+    uassert_true(!fdb_kv_iterate(&test_kvdb, &itr));
+
+    /* The failed read must not leave the previous record in the iterator. */
+    uassert_true(!itr.curr_kv.crc_is_ok);
+    uassert_int_equal(itr.curr_kv.name_len, 0);
+    uassert_int_equal(itr.curr_kv.value_len, 0);
+    uassert_int_equal(itr.curr_kv.addr.value, FDB_DATA_UNUSED);
+    uassert_int_equal(itr.iterated_cnt, 1);
+    uassert_int_equal(itr.iterated_value_bytes, first.value_len);
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_crc(void)
+{
+    const char *key = "issue59_crc";
+    struct fdb_blob blob;
+    struct fdb_kv kv;
+    uint8_t value[_TKV_W + 1], damaged[FDB_WG_ALIGN(1)];
+    size_t index;
+
+    uassert_true(test_kvdb.parent.file_mode);
+    if (!test_kvdb.parent.file_mode) {
+        return;
+    }
+    memset(value, 0xA5, sizeof(value));
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    index = issue_59_cache_index(&test_kvdb, kv.addr.start);
+    uassert_true(index < FDB_KV_CACHE_TABLE_SIZE);
+
+    /* Fault injection is restricted to the emulated file medium, not NOR programming. */
+    uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb, kv.addr.value,
+            damaged, sizeof(damaged)), FDB_NO_ERR);
+    damaged[0] ^= 1;
+    uassert_int_equal(_fdb_flash_write((fdb_db_t)&test_kvdb, kv.addr.value,
+            damaged, sizeof(damaged), true), FDB_NO_ERR);
+    uassert_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    if (index < FDB_KV_CACHE_TABLE_SIZE) {
+        uassert_int_equal(test_kvdb.kv_cache_table[index].addr, FDB_DATA_UNUSED);
+    }
+    uassert_int_equal(fdb_kv_get_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, value, sizeof(value))), 0);
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_stale_cache(void)
+{
+    const char *key = "issue59_stale";
+    struct fdb_blob blob;
+    struct fdb_kv kv;
+    uint8_t old_value[_TKV_W + 1], new_value[_TKV_W + 2], read_value[sizeof(new_value)];
+    uint32_t old_addr, new_addr;
+    size_t index;
+
+    memset(old_value, 0x11, sizeof(old_value));
+    memset(new_value, 0x22, sizeof(new_value));
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, old_value, sizeof(old_value))), FDB_NO_ERR);
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    old_addr = kv.addr.start;
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, new_value, sizeof(new_value))), FDB_NO_ERR);
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    new_addr = kv.addr.start;
+    index = issue_59_cache_index(&test_kvdb, new_addr);
+    uassert_true(index < FDB_KV_CACHE_TABLE_SIZE);
+    if (index >= FDB_KV_CACHE_TABLE_SIZE) {
+        return;
+    }
+
+    /* Restore an obsolete address deliberately; normal API calls need not create it. */
+    test_kvdb.kv_cache_table[index].addr = old_addr;
+    uassert_int_equal(fdb_kv_get_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, read_value, sizeof(read_value))), sizeof(new_value));
+    uassert_buf_equal(read_value, new_value, sizeof(new_value));
+    uassert_int_equal(test_kvdb.kv_cache_table[index].addr, new_addr);
+
+    uassert_int_equal(fdb_kv_del(&test_kvdb, key), FDB_NO_ERR);
+    test_kvdb.kv_cache_table[index].addr = new_addr;
+    uassert_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    uassert_int_equal(test_kvdb.kv_cache_table[index].addr, FDB_DATA_UNUSED);
+
+    /* A committed empty blob must remain distinguishable from a failed lookup. */
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, new_value, 0)), FDB_NO_ERR);
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+    uassert_int_equal(kv.value_len, 0);
+    uassert_int_equal(fdb_kv_del(&test_kvdb, key), FDB_NO_ERR);
+}
+
+static void test_fdb_github_issue_59_gc(void)
+{
+    struct fdb_blob blob;
+    uint8_t value[TEST_KV_VALUE_LEN];
+    uint32_t previous_oldest = test_kvdb.parent.oldest_addr;
+    size_t i, count = 2 * test_kvdb.parent.max_size / sizeof(value);
+    bool gc_ran = false;
+
+    memset(value, 0x59, sizeof(value));
+    for (i = 0; i < count; i++) {
+        value[0] = (uint8_t)i;
+        uassert_int_equal(fdb_kv_set_blob(&test_kvdb, "issue59_gc",
+                fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+        if (test_kvdb.parent.oldest_addr != previous_oldest) {
+            gc_ran = true;
+        }
+        previous_oldest = test_kvdb.parent.oldest_addr;
+    }
+    uassert_true(gc_ran);
+    test_fdb_github_issue_59_stale_cache();
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+#endif /* FDB_KV_USING_CACHE */
+
 static rt_err_t utest_tc_init(void)
 {
     dir_delete(TEST_TS_PART_NAME);
@@ -1024,6 +1449,18 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_gc2);
     UTEST_UNIT_RUN(test_fdb_scale_up);
     UTEST_UNIT_RUN(test_fdb_kvdb_set_default);
+#ifdef FDB_KV_USING_CACHE
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_max_key);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_cached_name_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_header_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_crc_data_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_record_name_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_crc_name_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_iterator_read_error);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_crc);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_stale_cache);
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_gc);
+#endif
 #if FDB_USING_READ_CACHE
     UTEST_UNIT_RUN(test_fdb_read_cache);
 #endif
