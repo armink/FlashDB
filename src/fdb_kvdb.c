@@ -643,7 +643,11 @@ static bool find_kv(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
     size_t key_len = strlen(key);
 
     if (get_kv_from_cache(db, key, key_len, &kv->addr.start)) {
-        if (read_kv(db, kv) == FDB_NO_ERR && find_kv_cb(kv, (void *)key, &find_ok)) {
+        /* get_kv_from_cache() already compared the raw name on the flash. read_kv()
+         * NUL-truncates kv->name for a maximum-length key, so it must not be
+         * compared again here, but the record itself is still validated. */
+        if (read_kv(db, kv) == FDB_NO_ERR && kv->crc_is_ok
+                && kv->status == FDB_KV_WRITE && kv->name_len == key_len) {
             return true;
         }
         /* A cached address is only a hint; retry through the validated scan. */
