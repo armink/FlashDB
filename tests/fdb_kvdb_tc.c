@@ -1006,6 +1006,38 @@ static size_t issue_59_cache_index(uint32_t addr)
     return FDB_KV_CACHE_TABLE_SIZE;
 }
 
+static void test_fdb_github_issue_59_max_key(void)
+{
+    char key[FDB_KV_NAME_MAX + 1];
+    struct fdb_blob blob;
+    struct fdb_kv kv;
+    uint8_t value[_TKV_W + 1], read_value[sizeof(value)];
+    size_t i;
+
+    memset(key, 'm', FDB_KV_NAME_MAX);
+    key[FDB_KV_NAME_MAX] = '\0';
+    memset(value, 0x5A, sizeof(value));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, key,
+            fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+
+    /* The cached lookup must accept a maximum-length key even though read_kv()
+     * NUL-truncates kv->name for it. */
+    for (i = 0; i < 2; i++) {
+        memset(&kv, 0, sizeof(kv));
+        uassert_not_null(fdb_kv_get_obj(&test_kvdb, key, &kv));
+        uassert_true(kv.crc_is_ok);
+        uassert_int_equal(kv.status, FDB_KV_WRITE);
+        uassert_int_equal(kv.name_len, FDB_KV_NAME_MAX);
+        uassert_int_equal(kv.value_len, sizeof(value));
+        memset(read_value, 0, sizeof(read_value));
+        uassert_int_equal(fdb_kv_get_blob(&test_kvdb, key,
+                fdb_blob_make(&blob, read_value, sizeof(read_value))), sizeof(value));
+        uassert_buf_equal(read_value, value, sizeof(value));
+    }
+    uassert_int_equal(fdb_kv_del(&test_kvdb, key), FDB_NO_ERR);
+}
+
 static void test_fdb_github_issue_59_crc(void)
 {
     const char *key = "issue59_crc";
@@ -1142,6 +1174,7 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_scale_up);
     UTEST_UNIT_RUN(test_fdb_kvdb_set_default);
 #ifdef FDB_KV_USING_CACHE
+    UTEST_UNIT_RUN(test_fdb_github_issue_59_max_key);
     UTEST_UNIT_RUN(test_fdb_github_issue_59_crc);
     UTEST_UNIT_RUN(test_fdb_github_issue_59_stale_cache);
     UTEST_UNIT_RUN(test_fdb_github_issue_59_gc);
