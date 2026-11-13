@@ -516,6 +516,11 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
 #endif
                 sector->empty_kv = _fdb_continue_ff_addr((fdb_db_t)db,
                         sector->addr + SECTOR_HDR_DATA_SIZE, sector->addr + db_sec_size(db));
+                /* Skip a status-only first KV header. */
+                if (sector->empty_kv > sector->addr + SECTOR_HDR_DATA_SIZE &&
+                        sector->empty_kv <= sector->addr + SECTOR_HDR_DATA_SIZE + KV_MAGIC_OFFSET) {
+                    sector->empty_kv = sector->addr + SECTOR_HDR_DATA_SIZE + KV_HDR_DATA_SIZE;
+                }
                 sector->remain = db_sec_size(db) - (sector->empty_kv - sector->addr);
             } else {
                 sector->empty_kv = FAILED_ADDR;
