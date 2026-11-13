@@ -1773,6 +1773,58 @@ void fdb_kvdb_control(fdb_kvdb_t db, int cmd, void *arg)
     }
 }
 
+static fdb_err_t recover_sector_headers(fdb_kvdb_t db)
+{
+    struct sector_hdr_data sec_hdr;
+    size_t valid_count = 0;
+    fdb_err_t result;
+    uint32_t addr;
+
+    /* Precheck before modifying flash; keep at least one valid sector header. */
+    for (addr = 0; addr < db_max_size(db); addr += db_sec_size(db)) {
+        result = _fdb_flash_read((fdb_db_t)db, addr, &sec_hdr, sizeof(sec_hdr));
+        if (result != FDB_NO_ERR) {
+            return result;
+        }
+        if (sec_hdr.magic == SECTOR_MAGIC_WORD
+                && (sec_hdr.combined == SECTOR_NOT_COMBINED || sec_hdr.combined == SECTOR_COMBINED)) {
+            valid_count++;
+        }
+    }
+
+    if (valid_count == SECTOR_NUM) {
+        return FDB_NO_ERR;
+    }
+    if (valid_count == 0) {
+        FDB_INFO("Error: No valid sector header remains; preserve flash.\n");
+        return FDB_READ_ERR;
+    }
+
+    /* Erase sectors with invalid headers before restoring them. */
+    for (addr = 0; addr < db_max_size(db); addr += db_sec_size(db)) {
+        result = _fdb_flash_read((fdb_db_t)db, addr, &sec_hdr, sizeof(sec_hdr));
+        if (result != FDB_NO_ERR) {
+            return result;
+        }
+        if (sec_hdr.magic == SECTOR_MAGIC_WORD
+                && (sec_hdr.combined == SECTOR_NOT_COMBINED || sec_hdr.combined == SECTOR_COMBINED)) {
+            continue;
+        }
+
+        FDB_INFO("Warning: Erasing sector with invalid header @0x%08" PRIX32
+                "; unique data may be lost.\n", addr);
+        result = format_sector(db, addr, SECTOR_NOT_COMBINED);
+
+        if (result != FDB_NO_ERR) {
+            FDB_INFO("Error: Restoring sector header @0x%08" PRIX32 " failed (%d).\n", addr, (int)result);
+            return result;
+        }
+
+        FDB_INFO("Restored sector header @0x%08" PRIX32 " after erase.\n", addr);
+    }
+
+    return FDB_NO_ERR;
+}
 /**
  * The KV database initialization.
  *
@@ -1820,16 +1872,6 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
         db->default_kvs.kvs = NULL;
     }
 
-    { /* find the oldest sector address */
-        uint32_t sector_oldest_addr = 0;
-        fdb_sector_store_status_t last_sector_status = FDB_SECTOR_STORE_UNUSED;
-
-        db_oldest_addr(db) = 0;
-        sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &sector_oldest_addr, &last_sector_status,
-                check_oldest_addr_cb, false);
-        db_oldest_addr(db) = sector_oldest_addr;
-        FDB_DEBUG("The oldest addr is @0x%08" PRIX32 "\n", db_oldest_addr(db));
-    }
     /* there is at least one empty sector for GC. */
     FDB_ASSERT((FDB_GC_EMPTY_SEC_THRESHOLD > 0 && FDB_GC_EMPTY_SEC_THRESHOLD < SECTOR_NUM))
 
@@ -1843,6 +1885,26 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
         db->kv_cache_table[i].addr = FDB_DATA_UNUSED;
     }
 #endif /* FDB_KV_USING_CACHE */
+
+    if (db->parent.not_formatable) {
+        result = recover_sector_headers(db);
+        if (result != FDB_NO_ERR) {
+            FDB_INFO("Error: Sector header recovery failed (%d); preserve flash.\n", (int)result);
+            db_unlock(db);
+            goto __exit;
+        }
+    }
+
+    { /* find the oldest sector address */
+        uint32_t sector_oldest_addr = 0;
+        fdb_sector_store_status_t last_sector_status = FDB_SECTOR_STORE_UNUSED;
+
+        db_oldest_addr(db) = 0;
+        sector_iterator(db, &sector, FDB_SECTOR_STORE_UNUSED, &sector_oldest_addr, &last_sector_status,
+                check_oldest_addr_cb, false);
+        db_oldest_addr(db) = sector_oldest_addr;
+        FDB_DEBUG("The oldest addr is @0x%08" PRIX32 "\n", db_oldest_addr(db));
+    }
 
     FDB_DEBUG("KVDB size is %" PRIu32 " bytes.\n", db_max_size(db));
     db_unlock(db);
