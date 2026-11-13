@@ -571,6 +571,10 @@ static void kv_iterator(fdb_kvdb_t db, fdb_kv_t kv, void *arg1, void *arg2,
         }
         /* sector has KV */
         if (sector.status.store == FDB_SECTOR_STORE_USING || sector.status.store == FDB_SECTOR_STORE_FULL) {
+            if (_fdb_continue_ff_addr((fdb_db_t)db, sector.addr + SECTOR_HDR_DATA_SIZE,
+                    sector.addr + db_sec_size(db)) == sector.addr + SECTOR_HDR_DATA_SIZE) {
+                continue;
+            }
             kv->addr.start = sector.addr + SECTOR_HDR_DATA_SIZE;
             /* search all KV */
             do {
