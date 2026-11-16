@@ -1549,6 +1549,96 @@ static void test_fdb_recovery_keeps_committed_replacement(void)
     recovery_scan_case(false, true, false);
 }
 
+/* Match the private sector header, including its per-granularity padding. */
+struct unused_status_sector_header
+{
+    uint8_t store[FDB_STORE_STATUS_TABLE_SIZE];
+    uint8_t dirty[FDB_DIRTY_STATUS_TABLE_SIZE];
+    uint32_t magic, combined, reserved;
+#if (FDB_WRITE_GRAN == 64) || (FDB_WRITE_GRAN == 128)
+    uint8_t padding[4];
+#elif (FDB_WRITE_GRAN == 256)
+    uint8_t padding[20];
+#endif
+};
+
+static void test_fdb_github_issue_443_sector_status(void)
+{
+    struct fdb_blob blob;
+    union
+    {
+        struct unused_status_sector_header header;
+        uint8_t bytes[FDB_WG_ALIGN(sizeof(struct unused_status_sector_header))];
+    } image;
+    uint8_t read_header[sizeof(image)];
+    uint8_t residual[FDB_WG_ALIGN(1)], read_residual[sizeof(residual)];
+    uint8_t value[_TKV_W + 1], read_value[sizeof(value)];
+    uint32_t victim = test_kvdb.parent.max_size - test_kvdb.parent.sec_size;
+    size_t mode;
+    bool not_format;
+    fdb_err_t result;
+
+    memset(value, 0x5A, sizeof(value));
+    for (mode = 0; mode < 3; mode++)
+    {
+        uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+        uassert_int_equal(fdb_kv_set_blob(&test_kvdb, "status_guard",
+                fdb_blob_make(&blob, value, sizeof(value))), FDB_NO_ERR);
+        uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb, victim,
+                image.bytes, sizeof(image)), FDB_NO_ERR);
+
+        /* Keep valid magic/combined fields; erase either or both status tables. */
+        if (mode != 1)
+        {
+            memset(image.header.store, FDB_BYTE_ERASED, sizeof(image.header.store));
+        }
+        if (mode != 0)
+        {
+            memset(image.header.dirty, FDB_BYTE_ERASED, sizeof(image.header.dirty));
+        }
+        memset(residual, 0xA5, sizeof(residual));
+        uassert_int_equal(_fdb_flash_erase((fdb_db_t)&test_kvdb,
+                victim, test_kvdb.parent.sec_size), FDB_NO_ERR);
+        uassert_int_equal(_fdb_flash_write((fdb_db_t)&test_kvdb, victim,
+                image.bytes, sizeof(image), true), FDB_NO_ERR);
+        uassert_int_equal(_fdb_flash_write((fdb_db_t)&test_kvdb, victim + sizeof(image),
+                residual, sizeof(residual), true), FDB_NO_ERR);
+        uassert_int_equal(fdb_kvdb_deinit(&test_kvdb), FDB_NO_ERR);
+
+        not_format = true;
+        fdb_kvdb_control(&test_kvdb, FDB_KVDB_CTRL_SET_NOT_FORMAT, &not_format);
+        result = fdb_kvdb_init(&test_kvdb, TEST_KVDB_NAME, TEST_TS_PART_NAME, NULL, NULL);
+        uassert_int_equal(result, FDB_READ_ERR);
+        uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb,
+                victim, read_header, sizeof(read_header)), FDB_NO_ERR);
+        uassert_buf_equal(read_header, image.bytes, sizeof(image));
+        uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb, victim + sizeof(image),
+                read_residual, sizeof(read_residual)), FDB_NO_ERR);
+        uassert_buf_equal(read_residual, residual, sizeof(residual));
+
+        /* Deinit also permits cleanup when the unpatched implementation accepts it. */
+        uassert_int_equal(fdb_kvdb_deinit(&test_kvdb), FDB_NO_ERR);
+        not_format = false;
+        fdb_kvdb_control(&test_kvdb, FDB_KVDB_CTRL_SET_NOT_FORMAT, &not_format);
+        uassert_int_equal(fdb_kvdb_init(&test_kvdb, TEST_KVDB_NAME,
+                TEST_TS_PART_NAME, NULL, NULL), FDB_NO_ERR);
+        uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb,
+                victim, read_header, sizeof(read_header)), FDB_NO_ERR);
+        _fdb_set_status(image.header.store, FDB_SECTOR_STORE_STATUS_NUM, FDB_SECTOR_STORE_EMPTY);
+        _fdb_set_status(image.header.dirty, FDB_SECTOR_DIRTY_STATUS_NUM, FDB_SECTOR_DIRTY_FALSE);
+        uassert_buf_equal(read_header, image.bytes, sizeof(image));
+        uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb, victim + sizeof(image),
+                read_residual, sizeof(read_residual)), FDB_NO_ERR);
+        memset(residual, FDB_BYTE_ERASED, sizeof(residual));
+        uassert_buf_equal(read_residual, residual, sizeof(residual));
+        uassert_int_equal(fdb_kv_get_blob(&test_kvdb, "status_guard",
+                fdb_blob_make(&blob, read_value, sizeof(read_value))), sizeof(value));
+        uassert_int_equal(blob.saved.len, sizeof(value));
+        uassert_buf_equal(read_value, value, sizeof(value));
+        uassert_int_equal(fdb_kvdb_check(&test_kvdb), FDB_NO_ERR);
+    }
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
 static rt_err_t utest_tc_init(void)
 {
     dir_delete(TEST_TS_PART_NAME);
@@ -1583,6 +1673,7 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_recovery_after_pre_write);
     UTEST_UNIT_RUN(test_fdb_recovery_after_torn_value);
     UTEST_UNIT_RUN(test_fdb_recovery_keeps_committed_replacement);
+    UTEST_UNIT_RUN(test_fdb_github_issue_443_sector_status);
 #ifdef FDB_KV_USING_CACHE
     UTEST_UNIT_RUN(test_fdb_github_issue_59_max_key);
     UTEST_UNIT_RUN(test_fdb_github_issue_59_cached_name_read_error);

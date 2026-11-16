@@ -476,11 +476,17 @@ static fdb_err_t read_sector_info(fdb_kvdb_t db, uint32_t addr, kv_sec_info_t se
         sector->combined = SECTOR_NOT_COMBINED;
         return FDB_INIT_FAILED;
     }
-    sector->check_ok = true;
     /* get other sector info */
     sector->combined = sec_hdr.combined;
     sector->status.store = (fdb_sector_store_status_t) _fdb_get_status(sec_hdr.status_table.store, FDB_SECTOR_STORE_STATUS_NUM);
     sector->status.dirty = (fdb_sector_dirty_status_t) _fdb_get_status(sec_hdr.status_table.dirty, FDB_SECTOR_DIRTY_STATUS_NUM);
+    /* The magic is written only after both status tables are initialized. */
+    if (sector->status.store == FDB_SECTOR_STORE_UNUSED ||
+        sector->status.dirty == FDB_SECTOR_DIRTY_UNUSED) {
+        sector->check_ok = false;
+        return FDB_INIT_FAILED;
+    }
+    sector->check_ok = true;
     /* traversal all KV and calculate the remain space size */
     if (traversal) {
         sector->remain = 0;
