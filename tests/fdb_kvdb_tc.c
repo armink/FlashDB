@@ -1418,6 +1418,137 @@ static void test_fdb_github_issue_59_gc(void)
 
 #endif /* FDB_KV_USING_CACHE */
 
+/* Recovery fixtures use the file medium to restore interrupted-write status snapshots. */
+static void recovery_set_status(uint32_t addr, fdb_kv_status_t status)
+{
+    uint8_t table[FDB_STATUS_TABLE_SIZE(FDB_KV_STATUS_NUM)];
+
+    _fdb_set_status(table, FDB_KV_STATUS_NUM, status);
+    uassert_int_equal(_fdb_flash_write((fdb_db_t)&test_kvdb, addr,
+            table, sizeof(table), true), FDB_NO_ERR);
+}
+
+static void recovery_scan_case(bool next_sector, bool replacement_committed, bool damaged_value)
+{
+    const char *pending_keys[] = {"unfinished0", "unfinished1"};
+    const char *old_key = "recover_old";
+    struct fdb_blob blob;
+    struct fdb_kv kv;
+    struct fdb_kv_iterator itr;
+    uint32_t pending_addr[2], old_addr;
+    uint8_t old_value[_TKV_W + 1], new_value[_TKV_W + 1], value[_TKV_W + 1];
+    uint8_t table[FDB_STATUS_TABLE_SIZE(FDB_KV_STATUS_NUM)];
+    size_t i, count = 0;
+
+    memset(old_value, 0x11, sizeof(old_value));
+    memset(new_value, 0x22, sizeof(new_value));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+
+    for (i = 0; i < FDB_ARRAY_SIZE(pending_keys); i++)
+    {
+        uassert_int_equal(fdb_kv_set_blob(&test_kvdb, pending_keys[i],
+                fdb_blob_make(&blob, old_value, sizeof(old_value))), FDB_NO_ERR);
+        uassert_not_null(fdb_kv_get_obj(&test_kvdb, pending_keys[i], &kv));
+        pending_addr[i] = kv.addr.start;
+    }
+
+    if (next_sector)
+    {
+        /* Close this sector before creating the record whose old value must be recovered. */
+        uassert_int_equal(_fdb_write_status((fdb_db_t)&test_kvdb,
+                FDB_ALIGN_DOWN(pending_addr[0], TEST_KVDB_SECTOR_SIZE), table,
+                FDB_SECTOR_STORE_STATUS_NUM, FDB_SECTOR_STORE_FULL, true), FDB_NO_ERR);
+        test_fdb_kvdb_deinit();
+        test_fdb_kvdb_init();
+    }
+
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, old_key,
+            fdb_blob_make(&blob, old_value, sizeof(old_value))), FDB_NO_ERR);
+    uassert_not_null(fdb_kv_get_obj(&test_kvdb, old_key, &kv));
+    old_addr = kv.addr.start;
+    uassert_true(pending_addr[1] < old_addr);
+
+    if (next_sector)
+    {
+        uassert_true(FDB_ALIGN_DOWN(pending_addr[1], TEST_KVDB_SECTOR_SIZE)
+                != FDB_ALIGN_DOWN(old_addr, TEST_KVDB_SECTOR_SIZE));
+    }
+
+    if (replacement_committed)
+    {
+        uassert_int_equal(fdb_kv_set_blob(&test_kvdb, old_key,
+                fdb_blob_make(&blob, new_value, sizeof(new_value))), FDB_NO_ERR);
+    }
+
+    uassert_int_equal(fdb_kv_set_blob(&test_kvdb, "tail",
+            fdb_blob_make(&blob, new_value, sizeof(new_value))), FDB_NO_ERR);
+
+    /* Model two unfinished writes before a pending deletion, including a torn value. */
+    if (damaged_value)
+    {
+        uassert_not_null(fdb_kv_get_obj(&test_kvdb, pending_keys[0], &kv));
+        uassert_int_equal(_fdb_flash_read((fdb_db_t)&test_kvdb, kv.addr.value,
+                value, _TKV_W), FDB_NO_ERR);
+        value[0] ^= 1;
+        uassert_int_equal(_fdb_flash_write((fdb_db_t)&test_kvdb, kv.addr.value,
+                value, _TKV_W, true), FDB_NO_ERR);
+    }
+
+    for (i = 0; i < FDB_ARRAY_SIZE(pending_addr); i++)
+    {
+        recovery_set_status(pending_addr[i], FDB_KV_PRE_WRITE);
+    }
+    recovery_set_status(old_addr, FDB_KV_PRE_DELETE);
+
+    /* A single initialization must finish the scan, with and without a newer committed copy. */
+    test_fdb_kvdb_deinit();
+    test_fdb_kvdb_init();
+    for (i = 0; i < FDB_ARRAY_SIZE(pending_keys); i++)
+    {
+        uassert_null(fdb_kv_get_obj(&test_kvdb, pending_keys[i], &kv));
+        uassert_int_equal(_fdb_read_status((fdb_db_t)&test_kvdb, pending_addr[i],
+                table, FDB_KV_STATUS_NUM), FDB_KV_ERR_HDR);
+    }
+    uassert_int_equal(fdb_kv_get_blob(&test_kvdb, old_key,
+            fdb_blob_make(&blob, value, sizeof(value))), sizeof(value));
+    uassert_buf_equal(value, replacement_committed ? new_value : old_value, sizeof(value));
+    uassert_int_equal(fdb_kv_get_blob(&test_kvdb, "tail",
+            fdb_blob_make(&blob, value, sizeof(value))), sizeof(value));
+    uassert_buf_equal(value, new_value, sizeof(value));
+
+    fdb_kv_iterator_init(&test_kvdb, &itr);
+    while (fdb_kv_iterate(&test_kvdb, &itr))
+    {
+        if (itr.curr_kv.name_len == strlen(old_key)
+                && memcmp(itr.curr_kv.name, old_key, strlen(old_key)) == 0)
+        {
+            count++;
+        }
+    }
+    uassert_int_equal(count, 1);
+    test_fdb_kvdb_deinit();
+    test_fdb_kvdb_init();
+    uassert_int_equal(fdb_kv_get_blob(&test_kvdb, old_key,
+            fdb_blob_make(&blob, value, sizeof(value))), sizeof(value));
+    uassert_buf_equal(value, replacement_committed ? new_value : old_value, sizeof(value));
+    uassert_int_equal(fdb_kv_set_default(&test_kvdb), FDB_NO_ERR);
+}
+
+static void test_fdb_recovery_after_pre_write(void)
+{
+    recovery_scan_case(false, false, false);
+}
+
+static void test_fdb_recovery_after_torn_value(void)
+{
+    recovery_scan_case(true, false, true);
+}
+
+static void test_fdb_recovery_keeps_committed_replacement(void)
+{
+    recovery_scan_case(false, true, false);
+}
+
 static rt_err_t utest_tc_init(void)
 {
     dir_delete(TEST_TS_PART_NAME);
@@ -1449,6 +1580,9 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_gc2);
     UTEST_UNIT_RUN(test_fdb_scale_up);
     UTEST_UNIT_RUN(test_fdb_kvdb_set_default);
+    UTEST_UNIT_RUN(test_fdb_recovery_after_pre_write);
+    UTEST_UNIT_RUN(test_fdb_recovery_after_torn_value);
+    UTEST_UNIT_RUN(test_fdb_recovery_keeps_committed_replacement);
 #ifdef FDB_KV_USING_CACHE
     UTEST_UNIT_RUN(test_fdb_github_issue_59_max_key);
     UTEST_UNIT_RUN(test_fdb_github_issue_59_cached_name_read_error);
