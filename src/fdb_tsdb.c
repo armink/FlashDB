@@ -1059,10 +1059,11 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
         if (check_sec_arg.empty_num > 0) {
             latest_addr = check_sec_arg.empty_addr;
         } else {
-            if (db->rollover) {
+            if (db->cur_sec.addr != FDB_DATA_UNUSED) {
+                /* There is no empty sector, but one is using. */
                 latest_addr = db->cur_sec.addr;
             } else {
-                /* There is no empty sector. */
+                /* There is no empty sector and all are full (only when not rollover). */
                 latest_addr = db->cur_sec.addr = db_max_size(db) - db_sec_size(db);
             }
         }
@@ -1092,6 +1093,9 @@ fdb_err_t fdb_tsdb_init(fdb_tsdb_t db, const char *name, const char *path, fdb_g
         }
         read_sector_info(db, addr, &sec, false);
         db->last_time = sec.end_time;
+    } else if (db->cur_sec.status == FDB_SECTOR_STORE_FULL) {
+        /* when not rollover, current sector may be full */
+        db->last_time = db->cur_sec.end_time;
     }
 
     /* unlock the TSDB */
