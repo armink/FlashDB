@@ -498,6 +498,77 @@ static void test_fdb_github_issue_249(void)
     uassert_true(fdb_tsl_query_count(&test_tsdb, 0, INT32_MAX, FDB_TSL_WRITE) == 3);
 }
 
+static void test_fdb_github_issue_291(void)
+{
+    if (access("issue291_tsdb", 0) < 0)
+    {
+        mkdir("issue291_tsdb", 0);
+    }
+
+    uint32_t sec_size = TEST_SECTOR_SIZE, db_size = TEST_SECTOR_SIZE * 2;
+    uint32_t max_len = 256;
+    rt_bool_t file_mode = true, flag_not_format = false;
+    bool rollover = false;
+    struct fdb_blob blob;
+    uint8_t payload[256];
+    fdb_err_t result;
+    fdb_time_t last_time = 0, read_time = 0;
+    size_t written = 0, count;
+
+    memset(&test_tsdb, 0, sizeof(struct fdb_tsdb));
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_SEC_SIZE, &sec_size);
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_MAX_SIZE, &db_size);
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_FILE_MODE, &file_mode);
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_NOT_FORMAT, &flag_not_format);
+
+    uassert_true(fdb_tsdb_init(&test_tsdb, "issue291_tsdb", "issue291_tsdb", get_time, max_len, NULL) == FDB_NO_ERR);
+    fdb_tsl_clean(&test_tsdb);
+    cur_times = 0;
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_ROLLOVER, &rollover);
+
+    memset(payload, 0x5A, sizeof(payload));
+    do {
+        result = fdb_tsl_append(&test_tsdb, fdb_blob_make(&blob, payload, sizeof(payload)));
+        if (result == FDB_NO_ERR) {
+            written++;
+            last_time = cur_times;
+        }
+    } while (result == FDB_NO_ERR && written < 256);
+
+    /* the last append must stop because every sector is FULL */
+    uassert_true(result == FDB_SAVED_FULL);
+    uassert_true(written > 0);
+    uassert_true(fdb_tsl_query_count(&test_tsdb, 0, INT32_MAX, FDB_TSL_WRITE) == written);
+
+    { /* reboot simulation with every sector FULL */
+        uassert_true(fdb_tsdb_deinit(&test_tsdb) == FDB_NO_ERR);
+
+        flag_not_format = true;
+        memset(&test_tsdb, 0, sizeof(struct fdb_tsdb));
+        fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_SEC_SIZE, &sec_size);
+        fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_MAX_SIZE, &db_size);
+        fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_FILE_MODE, &file_mode);
+        fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_NOT_FORMAT, &flag_not_format);
+        uassert_true(fdb_tsdb_init(&test_tsdb, "issue291_tsdb", "issue291_tsdb", get_time, max_len, NULL) == FDB_NO_ERR);
+    }
+
+    /* the reopened database must still expose every record and the last timestamp */
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_GET_LAST_TIME, &read_time);
+    uassert_true(read_time == last_time);
+    count = fdb_tsl_query_count(&test_tsdb, 0, INT32_MAX, FDB_TSL_WRITE);
+    uassert_true(count == written);
+
+    /* still non-rollover: the database is full but must stay readable and uncorrupted */
+    fdb_tsdb_control((fdb_tsdb_t) & (test_tsdb), FDB_TSDB_CTRL_SET_ROLLOVER, &rollover);
+    uassert_true(fdb_tsl_append(&test_tsdb, fdb_blob_make(&blob, payload, sizeof(payload))) == FDB_SAVED_FULL);
+    uassert_true(fdb_tsl_query_count(&test_tsdb, 0, INT32_MAX, FDB_TSL_WRITE) == written);
+    /*
+     * Appending with rollover enabled is not covered here: update_sec_status()
+     * still short-circuits on a FULL current sector, which is a separate issue
+     * from the invalid cur_sector this fix addresses.
+     */
+}
+
 static void testcase(void)
 {
     UTEST_UNIT_RUN(test_fdb_tsdb_init_ex);
@@ -512,6 +583,7 @@ static void testcase(void)
     UTEST_UNIT_RUN(test_fdb_tsdb_deinit);
 
     UTEST_UNIT_RUN(test_fdb_github_issue_249);
+    UTEST_UNIT_RUN(test_fdb_github_issue_291);
 }
 
 UTEST_TC_EXPORT(testcase, "packages.system.flashdb.tsdb", utest_tc_init, utest_tc_cleanup, 60);
